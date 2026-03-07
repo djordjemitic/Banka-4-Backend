@@ -5,6 +5,8 @@ import (
 	"common/pkg/logging"
 	"user-service/internal/config"
 	"user-service/internal/handler"
+	"user-service/internal/model"
+	"user-service/internal/seed"
 	"user-service/internal/server"
 
 	"go.uber.org/fx"
@@ -23,7 +25,13 @@ func main() {
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
 		}),
-		fx.Invoke(func(_ *gorm.DB) {}),
+		// Seed funkcija
+		fx.Invoke(func(db *gorm.DB) error {
+			if err := db.AutoMigrate(&model.Employee{}, &model.Position{}); err != nil {
+				return err
+			}
+			return seed.Run(db)
+		}),
 		fx.Invoke(server.NewServer),
 	).Run()
 }
