@@ -1,0 +1,56 @@
+package server
+
+import (
+	"common/pkg/errors"
+	"common/pkg/logging"
+	"context"
+	stderrors "errors"
+	"log"
+	"net/http"
+
+	"user-service/internal/config"
+	"user-service/internal/handler"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/fx"
+)
+
+func NewServer(lc fx.Lifecycle, config *config.Configuration, healthHandler *handler.HealthHandler) {
+	r := gin.New()
+
+	InitRouter(r)
+	SetupRoutes(r, healthHandler)
+
+	server := &http.Server{
+		Addr:    ":" + config.Port,
+		Handler: r,
+	}
+
+	RegisterServerLifecycle(lc, server)
+}
+
+func InitRouter(r *gin.Engine) {
+	r.Use(gin.Recovery())
+	r.Use(logging.Logger())
+	r.Use(errors.ErrorHandler())
+}
+
+func SetupRoutes(r *gin.Engine, handler *handler.HealthHandler) {
+	r.GET("/health", handler.Health)
+}
+
+func RegisterServerLifecycle(lc fx.Lifecycle, server *http.Server) {
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			go func() {
+				if err := server.ListenAndServe(); err != nil && !stderrors.Is(err, http.ErrServerClosed) {
+					log.Fatal(err)
+				}
+			}()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			return server.Shutdown(ctx)
+		},
+	})
+}
