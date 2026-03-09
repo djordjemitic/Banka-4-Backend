@@ -35,3 +35,20 @@ func (h *EmployeeHandler) Register(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, dto.ToEmployeeResponse(employee))
 }
+
+func (h *EmployeeHandler) Login(c *gin.Context) {
+	var req dto.LoginRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr("invalid request body"))
+		return
+	}
+
+	res, err := h.service.Login(c.Request.Context(), &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, res)
+}
