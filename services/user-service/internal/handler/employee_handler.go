@@ -147,3 +147,17 @@ func (h *EmployeeHandler) ResetPassword(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Password reset successfully"})
 }
+func (h *EmployeeHandler) ChangePassword(c *gin.Context) {
+	var req dto.ChangePasswordRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+	// proveravamo sa servisom da li je doslo do neke greske pri promeni
+	if err := h.service.ConfirmChangePassword(c.Request.Context(), req.OldPassword, req.NewPassword); err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "New Password set successfully"})
+}

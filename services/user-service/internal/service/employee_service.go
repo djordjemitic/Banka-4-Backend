@@ -1,6 +1,7 @@
 package service
 
 import (
+	"common/pkg/auth"
 	"common/pkg/errors"
 	"common/pkg/jwt"
 	"common/pkg/permission"
@@ -325,7 +326,6 @@ func (s *EmployeeService) ConfirmPasswordReset(ctx context.Context, token, newPa
 
 	return nil
 }
-
 func mapPermissions(employeeID uint, permissions []permission.Permission) []model.EmployeePermission {
 	result := make([]model.EmployeePermission, len(permissions))
 	for i, p := range permissions {
@@ -365,4 +365,39 @@ func (s *EmployeeService) Login(ctx context.Context, req *dto.LoginRequest) (*dt
 
 	//Vrati generisani token
 	return &dto.LoginResponse{Token: token}, nil
+}
+
+func (s *EmployeeService) ConfirmChangePassword(ctx context.Context, oldPassword string, newPassword string) error {
+	authCtx := auth.GetAuthFromContext(ctx)
+
+	if authCtx == nil {
+		return errors.UnauthorizedErr("invalid credentials")
+	}
+
+	userID := authCtx.UserID
+	// ako je nova ista kao stara
+	if oldPassword == newPassword {
+		return errors.BadRequestErr("new password cannot be the same one")
+	}
+	//ako korisnik postoji
+	employee, err := s.repo.FindByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if employee == nil {
+		return errors.UnauthorizedErr("invalid credentials")
+	}
+	// Provaravamo staru lozinku
+	if err = bcrypt.CompareHashAndPassword([]byte(employee.Password), []byte(oldPassword)); err != nil {
+		return errors.UnauthorizedErr("invalid credentials")
+	}
+	// Postavljamo novu lozninku
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+
+	employee.Password = string(hashedPassword)
+
+	return s.repo.Update(ctx, employee)
 }

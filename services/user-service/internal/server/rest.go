@@ -1,25 +1,27 @@
 package server
 
 import (
+	"common/pkg/auth"
 	"common/pkg/errors"
 	"common/pkg/logging"
 	"context"
 	stderrors "errors"
 	"log"
 	"net/http"
+	"user-service/internal/validator"
+
 	"user-service/internal/config"
 	"user-service/internal/handler"
-	"user-service/internal/validator"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
-func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, empHandler *handler.EmployeeHandler) {
+func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, empHandler *handler.EmployeeHandler, verifier auth.TokenVerifier, permissions auth.PermissionProvider) {
 	r := gin.New()
 
 	InitRouter(r)
-	SetupRoutes(r, healthHandler, empHandler)
+	SetupRoutes(r, healthHandler, empHandler, verifier, permissions)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -34,16 +36,18 @@ func InitRouter(r *gin.Engine) {
 	r.Use(logging.Logger())
 	r.Use(errors.ErrorHandler())
 
+	// Registrujemo custom validator za password
 	validator.RegisterValidators()
 }
 
-func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, empHandler *handler.EmployeeHandler) {
+func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, empHandler *handler.EmployeeHandler, verifier auth.TokenVerifier, permissions auth.PermissionProvider) {
 	r.GET("/health", healthHandler.Health)
 	r.POST("/register", empHandler.Register)
 	r.POST("/login", empHandler.Login)
 	r.POST("/activate", empHandler.Activate)
 	r.GET("/employees", empHandler.ListEmployees)
 	r.PATCH("/employees/:id", empHandler.UpdateEmployee)
+
 	r.POST("/forgot-password", empHandler.ForgotPassword)
 	r.POST("/reset-password", empHandler.ResetPassword)
 
@@ -55,6 +59,10 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, empHandler
 	// 	protected.GET("/employees", auth.RequirePermission(permission.EmployeeView), empHandler.ListEmployees)
 	// 	protected.PATCH("/employees/:id", auth.RequirePermission(permission.EmployeeUpdate), empHandler.UpdateEmployee)
 	// }
+	// Zaštićene rute - zahtevaju JWT
+	authorized := r.Group("/")
+	authorized.Use(auth.Middleware(verifier, permissions))
+	authorized.POST("/change-password", empHandler.ChangePassword)
 }
 
 func RegisterServerLifecycle(lc fx.Lifecycle, server *http.Server) {
