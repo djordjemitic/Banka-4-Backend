@@ -35,7 +35,8 @@ import (
 //	    }
 //	    return user, nil
 type AppError struct {
-	Code      int       `json:"code"`
+	Code      int       `json:"-"`
+	Status    string    `json:"status"`
 	Message   string    `json:"message"`
 	Timestamp time.Time `json:"timestamp"`
 	Err       error     `json:"-"`
@@ -50,7 +51,13 @@ func (e *AppError) Error() string {
 }
 
 func NewAppError(code int, message string, err error) *AppError {
-	return &AppError{Code: code, Message: message, Timestamp: time.Now(), Err: err}
+	return &AppError{
+		Code:      code,
+		Status:    http.StatusText(code),
+		Message:   message,
+		Timestamp: time.Now(),
+		Err:       err,
+	}
 }
 
 func BadRequestErr(message string) *AppError {
@@ -108,9 +115,12 @@ func ErrorHandler() gin.HandlerFunc {
 
 		lastError := contextErrors.Last().Err
 		if appErr, ok := stderrors.AsType[*AppError](lastError); ok {
-			context.JSON(appErr.Code, appErr.Message)
+			context.JSON(appErr.Code, appErr)
 		} else {
-			context.JSON(500, &AppError{Code: 500, Message: "Internal Server Error"})
+			context.JSON(
+				http.StatusInternalServerError,
+				NewAppError(http.StatusInternalServerError, "Internal Server Error", nil),
+			)
 		}
 	}
 }
