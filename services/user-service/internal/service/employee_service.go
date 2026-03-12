@@ -220,6 +220,19 @@ func (s *EmployeeService) UpdateEmployee(ctx context.Context, id uint, req *dto.
 	return employee, nil
 }
 
+func (s *EmployeeService) GetEmployeeByID(ctx context.Context, id uint) (*dto.EmployeeResponse, error) {
+	employee, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	if employee == nil {
+		return nil, errors.NotFoundErr("employee not found")
+	}
+
+	return dto.ToEmployeeResponse(employee), nil
+}
+
 func (s *EmployeeService) GetAllEmployees(ctx context.Context, query *dto.ListEmployeesQuery) (*dto.ListEmployeesResponse, error) {
 	employees, total, err := s.repo.GetAll(ctx, query.Email, query.FirstName, query.LastName, query.Position, query.Page, query.PageSize)
 	if err != nil {
