@@ -249,6 +249,18 @@ func (h *EmployeeHandler) ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "New Password set successfully"})
 }
 
+// RefreshToken godoc
+// @Summary Refresh access token
+// @Description Generates a new access token using a valid refresh token.
+// @Tags employees
+// @Accept json
+// @Produce json
+// @Param request body dto.RefreshRequest true "Refresh token"
+// @Success 200 {object} dto.RefreshResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Router /api/employees/refresh [post]
 func (h *EmployeeHandler) RefreshToken(c *gin.Context) {
 	var req dto.RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -31,3 +31,16 @@ func (e *Employee) HasPermission(p permission.Permission) bool {
 	}
 	return false
 }
+
+func (e *Employee) RawPermissions() []permission.Permission {
+	if e == nil || len(e.Permissions) == 0 {
+		return []permission.Permission{}
+	}
+
+	permissions := make([]permission.Permission, 0, len(e.Permissions))
+	for _, ep := range e.Permissions {
+		permissions = append(permissions, ep.Permission)
+	}
+
+	return permissions
+}

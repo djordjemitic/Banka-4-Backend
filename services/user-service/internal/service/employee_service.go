@@ -28,7 +28,7 @@ type EmployeeService struct {
 	repo             repository.EmployeeRepository // <-- no pointer
 	tokenRepo        repository.ActivationTokenRepository
 	resetTokenRepo   repository.ResetTokenRepository
-  refreshTokenRepo repository.RefreshTokenRepository
+	refreshTokenRepo repository.RefreshTokenRepository
 	positionRepo     repository.PositionRepository
 	emailService     Mailer
 	cfg              *config.Configuration
@@ -328,6 +328,7 @@ func (s *EmployeeService) ConfirmPasswordReset(ctx context.Context, token, newPa
 
 	return nil
 }
+
 func mapPermissions(employeeID uint, permissions []permission.Permission) []model.EmployeePermission {
 	result := make([]model.EmployeePermission, len(permissions))
 	for i, p := range permissions {
@@ -386,6 +387,7 @@ func (s *EmployeeService) Login(ctx context.Context, req *dto.LoginRequest) (*dt
 	return &dto.LoginResponse{
 		Token:        token,
 		RefreshToken: rawRefreshToken,
+		User:         dto.NewAuthUser(employee),
 	}, nil
 }
 
@@ -439,6 +441,7 @@ func (s *EmployeeService) RefreshToken(ctx context.Context, refreshTokenStr stri
 	return &dto.RefreshResponse{
 		Token:        newAccessToken,
 		RefreshToken: newRawRefresh,
+		User:         dto.NewAuthUser(employee),
 	}, nil
 }
 
@@ -473,7 +476,7 @@ func (s *EmployeeService) ConfirmChangePassword(ctx context.Context, oldPassword
 	}
 
 	employee.Password = string(hashedPassword)
-	
+
 	if err := s.repo.Update(ctx, employee); err != nil {
 		return errors.InternalErr(err)
 	}

@@ -15,8 +15,8 @@ import (
 	"user-service/internal/handler"
 	"user-service/internal/validator"
 
-	"github.com/gin-gonic/gin"
 	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
@@ -45,7 +45,7 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
-		MaxAge: 12 * time.Hour,
+		MaxAge:           12 * time.Hour,
 	}))
 
 	// Registrujemo custom validator za password
@@ -65,14 +65,15 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, empHandler
 			emp.POST("/forgot-password", empHandler.ForgotPassword)
 			emp.POST("/reset-password", empHandler.ResetPassword)
 
+			emp.POST("/refresh", empHandler.RefreshToken)
+
 			protected := emp.Group("/")
 			protected.Use(auth.Middleware(verifier, permissions))
-      {
-				protected.POST("/register", auth.RequirePermission(permission.EmployeeCreate) ,empHandler.Register)
+			{
+				protected.POST("/register", auth.RequirePermission(permission.EmployeeCreate), empHandler.Register)
 				protected.PATCH("/:id", auth.RequirePermission(permission.EmployeeUpdate), empHandler.UpdateEmployee)
 				protected.GET("/", auth.RequirePermission(permission.EmployeeView), empHandler.ListEmployees)
 				protected.POST("/change-password", empHandler.ChangePassword)
-        protected.POST("/refresh", empHandler.RefreshToken)
 			}
 		}
 	}

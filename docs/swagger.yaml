@@ -9,6 +9,23 @@ definitions:
     - password
     - token
     type: object
+  dto.AuthUser:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      id:
+        type: integer
+      last_name:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/permission.Permission'
+        type: array
+      username:
+        type: string
+    type: object
   dto.ChangePasswordRequest:
     properties:
       new_password:
@@ -139,8 +156,28 @@ definitions:
     type: object
   dto.LoginResponse:
     properties:
+      refresh_token:
+        type: string
       token:
         type: string
+      user:
+        $ref: '#/definitions/dto.AuthUser'
+    type: object
+  dto.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  dto.RefreshResponse:
+    properties:
+      refresh_token:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/dto.AuthUser'
     type: object
   dto.ResetPasswordRequest:
     properties:
@@ -399,6 +436,40 @@ paths:
           schema:
             $ref: '#/definitions/errors.AppError'
       summary: Authenticate employee
+      tags:
+      - employees
+  /api/employees/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Generates a new access token using a valid refresh token.
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.RefreshResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Refresh access token
       tags:
       - employees
   /api/employees/register:
