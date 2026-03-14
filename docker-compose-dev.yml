@@ -36,6 +36,30 @@ services:
       - /go/pkg/mod
     working_dir: /app/services/user-service
 
+  banking_service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile-dev
+    ports:
+      - "${BANKING_SERVICE_PORT}:${BANKING_SERVICE_PORT}"
+    env_file: .env
+    environment:
+      AIR_CONFIG_PATH: /app/services/banking-service/.air.toml
+      PORT: ${BANKING_SERVICE_PORT}
+      USER_SERVICE_ADDR: user_service:50051
+    depends_on:
+      user_service_db:
+        condition: service_healthy
+      user_service:
+        condition: service_healthy
+    healthcheck:
+      test: curl -f http://localhost:${BANKING_SERVICE_PORT}/api/health || exit 1
+    volumes:
+      - .:/app:Z
+      - /app/tmp
+      - /go/pkg/mod
+    working_dir: /app/services/banking-service
+
   maildev:
     image: maildev/maildev:latest
     restart: unless-stopped
