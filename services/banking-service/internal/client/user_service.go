@@ -1,0 +1,29 @@
+package client
+
+import (
+	"banking-service/internal/config"
+	"context"
+
+	"go.uber.org/fx"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+func NewUserServiceClient(lc fx.Lifecycle, cfg *config.Configuration) (*grpc.ClientConn, error) {
+	conn, err := grpc.NewClient(
+		cfg.UserServiceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			return conn.Close()
+		},
+	})
+
+	return conn, nil
+}

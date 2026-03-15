@@ -1,0 +1,28 @@
+info:
+  contact: {}
+  description: API for managing accounts, balances, and banking operations.
+  title: Banking Service API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      description: Returns service health status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - health
+securityDefinitions:
+  BearerAuth:
+    description: JWT Authorization header using the Bearer scheme.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

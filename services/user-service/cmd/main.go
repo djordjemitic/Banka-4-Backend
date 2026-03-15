@@ -6,6 +6,7 @@ import (
 	"common/pkg/jwt"
 	"common/pkg/logging"
 	"user-service/internal/config"
+	"user-service/internal/grpc"
 	"user-service/internal/handler"
 	"user-service/internal/model"
 	"user-service/internal/permission"
@@ -54,6 +55,7 @@ func main() {
 			handler.NewEmployeeHandler,
 			handler.NewClientHandler,
 			handler.NewHealthHandler,
+			grpc.NewPermissionService,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
@@ -73,6 +75,6 @@ func main() {
 			}
 			return seed.Run(db)
 		}),
-		fx.Invoke(server.NewServer),
+		fx.Invoke(server.NewServer, server.NewGRPCServer),
 	).Run()
 }

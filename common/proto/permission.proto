@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package permission.v1;
+
+option go_package = "common/pkg/pb;pb";
+
+service PermissionService {
+  rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse);
+}
+
+message GetPermissionsRequest {
+  uint64 identity_id = 1;
+  string identity_type = 2;
+  uint64 subject_id = 3;
+}
+
+message GetPermissionsResponse {
+  repeated string permissions = 1;
+}
