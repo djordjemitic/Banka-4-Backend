@@ -40,7 +40,7 @@ func (s *AccountService) isValidAccountNumber(ctx context.Context, number string
 	var exists, _ = s.repo.AccountNumberExists(ctx, number)
 
 	if exists {
-		return false;
+		return false
 	}
 
 	// TODO Actually implement checksum
@@ -65,7 +65,7 @@ func (s *AccountService) findCurrencyByCode(ctx context.Context, code model.Curr
 	var currency model.Currency
 	result := s.db.WithContext(ctx).Where("code = ?", code).First(&currency)
 	if result.Error != nil {
-		return nil, errors.NotFoundErr("currency not found: " + string(code)
+		return nil, errors.NotFoundErr("currency not found: " + string(code))
 	}
 	return &currency, nil
 }
@@ -74,7 +74,7 @@ func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountReques
 	if _, err := s.userClient.GetClientByID(ctx, req.ClientID); err != nil {
 		return nil, errors.NotFoundErr("client not found")
 	}
-	
+
 	if _, err := s.userClient.GetEmployeeByID(ctx, req.EmployeeID); err != nil {
 		return nil, errors.NotFoundErr("employee not found")
 	}
@@ -82,6 +82,7 @@ func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountReques
 	if req.AccountType == model.AccountTypeBusiness && req.CompanyID == nil {
 		return nil, errors.BadRequestErr("business account requires a company")
 	}
+
 	if req.AccountType == model.AccountTypePersonal && req.CompanyID != nil {
 		return nil, errors.BadRequestErr("personal account cannot have a company")
 	}
