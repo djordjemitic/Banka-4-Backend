@@ -9,17 +9,14 @@ import (
 )
 
 type TransferService struct {
-	repo        repository.TransferRepository
-	accountRepo repository.AccountRepository
+	repo repository.TransferRepository
 }
 
 func NewTransferService(
 	repo repository.TransferRepository,
-	accountRepo repository.AccountRepository,
 ) *TransferService {
 	return &TransferService{
-		repo:        repo,
-		accountRepo: accountRepo,
+		repo: repo,
 	}
 }
 
