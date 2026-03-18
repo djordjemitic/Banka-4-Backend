@@ -40,18 +40,20 @@ func (f *fakePaymentRepo) Update(ctx context.Context, p *model.Payment) error {
 	return nil
 }
 
-// ── Fake Transaction Repo ──────────────────────────────────────────
-
 type fakeTransactionRepo struct {
-	createErr   error
-	transaction *model.Transaction
+	createErr       error
+	getErr          error
+	updateErr       error
+	transaction     *model.Transaction
+	returnedTx      *model.Transaction
+	returnedTxErr   error
 }
 
-func (f *fakeTransactionRepo) Create(ctx context.Context, t *model.Transaction) error {
+func (f *fakeTransactionRepo) Create(_ context.Context, t *model.Transaction) error {
 	if f.createErr != nil {
 		return f.createErr
 	}
-	t.TransactionID = 1
+	t.TransactionID = 1 // simulate ID assignment
 	f.transaction = t
 	return nil
 }
@@ -59,6 +61,11 @@ func (f *fakeTransactionRepo) Create(ctx context.Context, t *model.Transaction) 
 func (f *fakeTransactionRepo) Update(ctx context.Context, t *model.Transaction) error {
 	f.transaction = t
 	return nil
+}
+
+func (f *fakeTransactionRepo) GetByID(_ context.Context, _ uint) (*model.Transaction, error) {
+	// return preset transaction or error
+	return f.returnedTx, f.returnedTxErr
 }
 
 // ── Fake Payment Account Repo ──────────────────────────────────────
@@ -115,7 +122,7 @@ func (f *fakeExchangeService) Convert(ctx context.Context, amount float64, from,
 	return amount * f.rate, nil
 }
 
-// ── Constructor ────────────────────────────────────────────────────
+// ── Constructor ────────────────────────────────────────────────────────
 
 func newTestPaymentService(
 	paymentRepo repository.PaymentRepository,

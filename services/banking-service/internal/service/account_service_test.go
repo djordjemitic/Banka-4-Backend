@@ -17,9 +17,12 @@ import (
 // ── Fakes ─────────────────────────────────────────────────────────────────────
 
 type fakeAccountRepo struct {
-	accNumExists    bool
-	accNumExistsErr error
-	createErr       error
+	accNumExists        bool
+	accNumExistsErr     error
+	createErr           error
+	getByAccNumber      *model.Account
+	getByAccNumberErr   error
+	updateErr           error
 }
 
 func (r *fakeAccountRepo) Create(_ context.Context, _ *model.Account) error {
