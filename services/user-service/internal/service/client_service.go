@@ -107,3 +107,41 @@ func (s *ClientService) Register(ctx context.Context, req *dto.CreateClientReque
 	client.Identity = *identity
 	return client, nil
 }
+func (s *ClientService) GetAllClients(ctx context.Context, query *dto.ListClientsQuery) ([]*model.Client, int64, error) {
+	return s.clientRepo.FindAll(ctx, query)
+}
+
+func (s *ClientService) UpdateClient(ctx context.Context, id uint, req *dto.UpdateClientRequest) (*model.Client, error) {
+	client, err := s.clientRepo.FindByID(ctx, id)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if client == nil {
+		return nil, errors.NotFoundErr("client not found")
+	}
+
+	if req.FirstName != nil {
+		client.FirstName = *req.FirstName
+	}
+	if req.LastName != nil {
+		client.LastName = *req.LastName
+	}
+	if req.Gender != nil {
+		client.Gender = *req.Gender
+	}
+	if req.DateOfBirth != nil {
+		client.DateOfBirth = *req.DateOfBirth
+	}
+	if req.PhoneNumber != nil {
+		client.PhoneNumber = *req.PhoneNumber
+	}
+	if req.Address != nil {
+		client.Address = *req.Address
+	}
+
+	if err := s.clientRepo.Update(ctx, client); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	return client, nil
+}

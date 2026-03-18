@@ -105,8 +105,11 @@ func SetupRoutes(
 		}
 
 		cli := api.Group("/clients")
+		cli.Use(auth.Middleware(verifier, permissions))
 		{
+			cli.GET("", auth.RequirePermission(permission.ClientView), clientHandler.ListClients)
 			cli.POST("/register", clientHandler.Register)
+			cli.PATCH("/:id", auth.RequirePermission(permission.ClientUpdate), clientHandler.UpdateClient)
 		}
 	}
 }

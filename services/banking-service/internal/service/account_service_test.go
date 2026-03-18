@@ -17,12 +17,15 @@ import (
 // ── Fakes ─────────────────────────────────────────────────────────────────────
 
 type fakeAccountRepo struct {
-	accNumExists        bool
-	accNumExistsErr     error
-	createErr           error
-	getByAccNumber      *model.Account
-	getByAccNumberErr   error
-	updateErr           error
+	accNumExists      bool
+	accNumExistsErr   error
+	createErr         error
+	getByAccNumber    *model.Account
+	getByAccNumberErr error
+	updateErr         error
+	allAccounts       []*model.Account
+	allTotal          int64
+	getAllErr         error
 }
 
 func (r *fakeAccountRepo) Create(_ context.Context, _ *model.Account) error {
@@ -38,6 +41,10 @@ func (r *fakeAccountRepo) FindByAccountNumber(_ context.Context, _ string) (*mod
 
 func (r *fakeAccountRepo) UpdateBalance(_ context.Context, _ *model.Account) error {
 	return nil
+}
+
+func (r *fakeAccountRepo) FindAll(_ context.Context, _ *dto.ListAccountsQuery) ([]*model.Account, int64, error) {
+	return r.allAccounts, r.allTotal, r.getAllErr
 }
 
 type fakeAccountUserClient struct {
@@ -302,6 +309,80 @@ func TestCreateAccount(t *testing.T) {
 				tt.check(t, account)
 			}
 			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestGetAllAccounts(t *testing.T) {
+	t.Parallel()
+
+	query := &dto.ListAccountsQuery{
+		Page:     1,
+		PageSize: 10,
+	}
+
+	tests := []struct {
+		name      string
+		repo      *fakeAccountRepo
+		expectErr bool
+		wantTotal int64
+		wantCount int
+	}{
+		{
+			name: "successful list",
+			repo: &fakeAccountRepo{
+				allAccounts: []*model.Account{
+					{
+						AccountNumber: "1234567890123456",
+						ClientID:      1,
+						AccountType:   model.AccountTypePersonal,
+						AccountKind:   model.AccountKindCurrent,
+						Status:        "Active",
+					},
+					{
+						AccountNumber: "6543210987654321",
+						ClientID:      2,
+						AccountType:   model.AccountTypeBusiness,
+						AccountKind:   model.AccountKindCurrent,
+						Status:        "Active",
+					},
+				},
+				allTotal: 2,
+			},
+			wantTotal: 2,
+			wantCount: 2,
+		},
+		{
+			name:      "empty list",
+			repo:      &fakeAccountRepo{},
+			wantTotal: 0,
+			wantCount: 0,
+		},
+		{
+			name:      "repo error",
+			repo:      &fakeAccountRepo{getAllErr: fmt.Errorf("db error")},
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			db, _ := newMockDB(t)
+			svc := newAccountService(tt.repo, &fakeAccountUserClient{}, db)
+
+			accounts, total, err := svc.GetAllAccounts(context.Background(), query)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.wantTotal, total)
+			require.Len(t, accounts, tt.wantCount)
 		})
 	}
 }

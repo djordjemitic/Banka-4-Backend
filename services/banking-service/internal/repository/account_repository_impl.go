@@ -1,10 +1,10 @@
 package repository
 
 import (
+	"banking-service/internal/dto"
 	"banking-service/internal/model"
 	"common/pkg/db"
 	"context"
-	"errors"
 
 	"gorm.io/gorm"
 )
@@ -33,28 +33,50 @@ func (r *accountRepository) AccountNumberExists(ctx context.Context, accountNumb
 	return count > 0, err
 }
 
-func (r *accountRepository) FindByAccountNumber(ctx context.Context, accountNumber string) (*model.Account, error) {
+func (r *accountRepository) GetByAccountNumber(ctx context.Context, accountNumber string) (*model.Account, error) {
 	db := db.DBFromContext(ctx, r.db)
 
 	var account model.Account
-	err := db.WithContext(ctx).Preload("Currency").First(&account, accountNumber).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
+	if err := db.WithContext(ctx).First(&account, accountNumber).Error; err != nil {
 		return nil, err
 	}
 	return &account, nil
 }
 
-func (r *accountRepository) UpdateBalance(ctx context.Context, account *model.Account) error {
-  db := db.DBFromContext(ctx, r.db)
-  
-	return db.WithContext(ctx).Model(account).Updates(map[string]interface{}{
-		"balance":           account.Balance,
-		"available_balance": account.AvailableBalance,
-		"daily_spending":    account.DailySpending,
-		"monthly_spending":  account.MonthlySpending,
-	}).Error
+func (r *accountRepository) Update(ctx context.Context, account *model.Account) error {
+	db := db.DBFromContext(ctx, r.db)
+
+	return db.WithContext(ctx).Save(account).Error
+}
+func (r *accountRepository) FindAll(ctx context.Context, query *dto.ListAccountsQuery) ([]*model.Account, int64, error) {
+	var accounts []*model.Account
+	var count int64
+
+	db := r.db.WithContext(ctx).Model(&model.Account{})
+
+	if query.ClientID != nil {
+		db = db.Where("client_id = ?", *query.ClientID)
+	}
+	if query.AccountType != "" {
+		db = db.Where("account_type = ?", query.AccountType)
+	}
+	if query.AccountKind != "" {
+		db = db.Where("account_kind = ?", query.AccountKind)
+	}
+	if query.Status != "" {
+		db = db.Where("status = ?", query.Status)
+	}
+	if query.CurrencyID != nil {
+		db = db.Where("currency_id = ?", *query.CurrencyID)
+	}
+
+	if err := db.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (query.Page - 1) * query.PageSize
+	err := db.Preload("Currency").Preload("Company").
+		Limit(query.PageSize).Offset(offset).Find(&accounts).Error
+
+	return accounts, count, err
 }
