@@ -1,6 +1,7 @@
 package service
 
 import (
+	"banking-service/internal/client"
 	"banking-service/internal/dto"
 	"banking-service/internal/model"
 	"common/pkg/pb"
@@ -14,9 +15,9 @@ import (
 
 type fakeAccountRepo struct {
 	accNumExists        bool
-  accountNumberExists bool
-  nameExists          bool
-  nameExistsErr       error
+	accountNumberExists bool
+	nameExists          bool
+	nameExistsErr       error
 	accNumExistsErr     error
 	createErr           error
 	accounts            []model.Account
@@ -35,6 +36,13 @@ func (f *fakeAccountRepo) Create(_ context.Context, _ *model.Account) error {
 
 func (f *fakeAccountRepo) AccountNumberExists(_ context.Context, _ string) (bool, error) {
 	return f.accountNumberExists, nil
+}
+
+func (f *fakeAccountRepo) NameExistsForClient(_ context.Context, _ uint, _ string, _ string) (bool, error) {
+	if f.nameExistsErr != nil {
+		return false, f.nameExistsErr
+	}
+	return f.nameExists, nil
 }
 
 func (r *fakeAccountRepo) FindAllByClientID(_ context.Context, _ uint) ([]model.Account, error) {
@@ -64,8 +72,6 @@ func (r *fakeAccountRepo) GetByAccountNumber(_ context.Context, _ string) (*mode
 func (f *fakeAccountRepo) UpdateBalance(_ context.Context, _ *model.Account) error {
 	return nil
 }
-
-
 
 type fakeVerificationTokenRepo struct {
 	token     *model.VerificationToken
@@ -122,6 +128,18 @@ type fakeCurrencyConverter struct {
 	convertErr error
 }
 
+type fakeAccountMobileSecretClient struct {
+	secret string
+	err    error
+}
+
+func (f *fakeAccountMobileSecretClient) GetMobileSecret(_ context.Context, _ string) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	return f.secret, nil
+}
+
 func (f *fakeCurrencyConverter) Convert(_ context.Context, amount float64, _ model.CurrencyCode, _ model.CurrencyCode) (float64, error) {
 	if f.convertErr != nil {
 		return 0, f.convertErr
@@ -162,12 +180,16 @@ func baseExpiresAt() time.Time {
 
 func newAccountService(
 	accountRepo *fakeAccountRepo,
-  vr *fakeVerificationTokenRepo,
+	vr *fakeVerificationTokenRepo,
 	currencyRepo *fakeCurrencyRepo,
 	userClient *fakeUserClient,
+	mobileSecretClient client.MobileSecretClient,
 	exchangeConverter *fakeCurrencyConverter,
 ) *AccountService {
-	return NewAccountService(accountRepo, vr, currencyRepo, userClient, nil, exchangeConverter)
+	if mobileSecretClient == nil {
+		mobileSecretClient = &fakeAccountMobileSecretClient{}
+	}
+	return NewAccountService(accountRepo, currencyRepo, vr, userClient, nil, mobileSecretClient, exchangeConverter)
 }
 
 func TestCreateAccount(t *testing.T) {
@@ -430,9 +452,7 @@ func TestCreateAccount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newAccountService(tt.accountRepo, tt.currencyRepo, tt.userClient, tt.exchangeConverter)
-
-			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, tt.uc, db)
+			svc := newAccountService(tt.accountRepo, &fakeVerificationTokenRepo{}, tt.currencyRepo, tt.userClient, nil, tt.exchangeConverter)
 			account, err := svc.Create(context.Background(), tt.req)
 
 			if tt.expectErr {
@@ -494,7 +514,7 @@ func TestGetClientAccounts(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeAccountUserClient{}, nil)
+			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{})
 			accounts, err := svc.GetClientAccounts(context.Background(), 1)
 			if tt.expectErr {
 				require.Error(t, err)
@@ -534,7 +554,7 @@ func TestGetAccountDetails(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeAccountUserClient{}, nil)
+			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{})
 			account, err := svc.GetAccountDetails(context.Background(), "444000112345678911", 1)
 			if tt.expectErr {
 				require.Error(t, err)
@@ -605,7 +625,7 @@ func TestUpdateAccountName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeAccountUserClient{}, nil)
+			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{})
 			err := svc.UpdateAccountName(context.Background(), "444000112345678911", 1, tt.newName)
 			if tt.expectErr {
 				require.Error(t, err)
@@ -658,8 +678,8 @@ func TestRequestLimitsChange(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := newAccountService(tt.repo, tt.vr, &fakeAccountUserClient{}, nil)
-			code, err := svc.RequestLimitsChange(context.Background(), "444000112345678911", 1, 500000, 2000000)
+			svc := newAccountService(tt.repo, tt.vr, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{})
+			err := svc.RequestLimitsChange(context.Background(), "444000112345678911", 1, 500000, 2000000)
 			if tt.expectErr {
 				require.Error(t, err)
 				if tt.errMsg != "" {
@@ -668,86 +688,81 @@ func TestRequestLimitsChange(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			require.NotEmpty(t, code)
-			require.Len(t, code, 6)
 		})
 	}
+}
+
+func generateCurrentTOTPCode(t *testing.T, secret string) string {
+	t.Helper()
+	decoded, err := decodeBase32Secret(secret)
+	require.NoError(t, err)
+	counter := time.Now().Unix() / totpStepSeconds
+	return generateTOTP(decoded, counter)
 }
 
 func TestConfirmLimitsChange(t *testing.T) {
 	t.Parallel()
 
+	const secret = "JBSWY3DPEHPK3PXP"
+	validCode := generateCurrentTOTPCode(t, secret)
 	validToken := &model.VerificationToken{
 		ID:              1,
 		ClientID:        1,
 		AccountNumber:   "444000112345678911",
-		Code:            "123456",
 		NewDailyLimit:   500000,
 		NewMonthlyLimit: 2000000,
-		ExpiresAt:       time.Now().Add(5 * time.Minute),
 	}
 
 	tests := []struct {
 		name      string
 		repo      *fakeAccountRepo
 		vr        *fakeVerificationTokenRepo
+		secret    string
+		secretErr error
 		code      string
 		expectErr bool
 		errMsg    string
 	}{
 		{
-			name: "success with correct code",
-			repo: &fakeAccountRepo{},
-			vr:   &fakeVerificationTokenRepo{token: validToken},
-			code: "123456",
-		},
-		{
-			name: "success with cheat code 1234",
-			repo: &fakeAccountRepo{},
-			vr:   &fakeVerificationTokenRepo{token: validToken},
-			code: "1234",
+			name:   "success with valid totp code",
+			repo:   &fakeAccountRepo{},
+			vr:     &fakeVerificationTokenRepo{token: validToken},
+			secret: secret,
+			code:   validCode,
 		},
 		{
 			name:      "token not found",
 			repo:      &fakeAccountRepo{},
 			vr:        &fakeVerificationTokenRepo{findErr: fmt.Errorf("not found")},
-			code:      "123456",
+			secret:    secret,
+			code:      validCode,
 			expectErr: true,
 			errMsg:    "no pending limits change",
 		},
 		{
-			name: "token already used",
-			repo: &fakeAccountRepo{},
-			vr: &fakeVerificationTokenRepo{token: &model.VerificationToken{
-				Code: "123456", ExpiresAt: time.Now().Add(5 * time.Minute),
-			}},
-			code:      "123456",
-			expectErr: true,
-			errMsg:    "already been used",
-		},
-		{
-			name: "token expired",
-			repo: &fakeAccountRepo{},
-			vr: &fakeVerificationTokenRepo{token: &model.VerificationToken{
-				Code: "123456", ExpiresAt: time.Now().Add(-1 * time.Minute),
-			}},
-			code:      "123456",
-			expectErr: true,
-			errMsg:    "expired",
-		},
-		{
-			name:      "wrong code",
+			name:      "invalid verification code",
 			repo:      &fakeAccountRepo{},
 			vr:        &fakeVerificationTokenRepo{token: validToken},
+			secret:    secret,
 			code:      "000000",
 			expectErr: true,
 			errMsg:    "invalid verification code",
 		},
 		{
+			name:      "mobile secret unavailable",
+			repo:      &fakeAccountRepo{},
+			vr:        &fakeVerificationTokenRepo{token: validToken},
+			secretErr: fmt.Errorf("secret service down"),
+			code:      validCode,
+			expectErr: true,
+			errMsg:    "Service Unavailable",
+		},
+		{
 			name:      "update limits fails",
 			repo:      &fakeAccountRepo{updateLimitsErr: fmt.Errorf("db failure")},
 			vr:        &fakeVerificationTokenRepo{token: validToken},
-			code:      "123456",
+			secret:    secret,
+			code:      validCode,
 			expectErr: true,
 		},
 	}
@@ -755,8 +770,9 @@ func TestConfirmLimitsChange(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := newAccountService(tt.repo, tt.vr, &fakeAccountUserClient{}, nil)
-			err := svc.ConfirmLimitsChange(context.Background(), "444000112345678911", 1, tt.code)
+			mobileClient := &fakeAccountMobileSecretClient{secret: tt.secret, err: tt.secretErr}
+			svc := newAccountService(tt.repo, tt.vr, &fakeCurrencyRepo{}, &fakeUserClient{}, mobileClient, &fakeCurrencyConverter{})
+			err := svc.ConfirmLimitsChange(context.Background(), "444000112345678911", 1, tt.code, "Bearer test")
 			if tt.expectErr {
 				require.Error(t, err)
 				if tt.errMsg != "" {

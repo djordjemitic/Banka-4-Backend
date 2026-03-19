@@ -90,13 +90,17 @@ func main() {
 			handler.NewPayeeHandler,
 			handler.NewExchangeHandler,
 			handler.NewPaymentHandler,
-      handler.NewCardHandler,
+			handler.NewCardHandler,
 			handler.NewLoanHandler,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
+			if err := normalizeVerificationTokensSchema(db); err != nil {
+				return err
+			}
+
 			if err := db.AutoMigrate(
 				&model.Currency{},
 				&model.WorkCode{},
@@ -112,7 +116,7 @@ func main() {
 				&model.VerificationToken{},
 				&model.LoanType{},
 				&model.LoanRequest{},
-        &model.VerificationToken{},
+				&model.VerificationToken{},
 			); err != nil {
 				return err
 			}
@@ -129,4 +133,20 @@ func main() {
 		}),
 		fx.Invoke(server.NewServer),
 	).Run()
+}
+
+func normalizeVerificationTokensSchema(db *gorm.DB) error {
+	if db.Migrator().HasColumn("verification_tokens", "code") {
+		if err := db.Migrator().DropColumn("verification_tokens", "code"); err != nil {
+			return err
+		}
+	}
+
+	if db.Migrator().HasColumn("verification_tokens", "expires_at") {
+		if err := db.Migrator().DropColumn("verification_tokens", "expires_at"); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

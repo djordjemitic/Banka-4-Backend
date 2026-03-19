@@ -209,10 +209,8 @@ func (s *AccountService) RequestLimitsChange(ctx context.Context, accountNumber 
 	token := &model.VerificationToken{
 		ClientID:        clientID,
 		AccountNumber:   accountNumber,
-		Code:            "",
 		NewDailyLimit:   daily,
 		NewMonthlyLimit: monthly,
-		ExpiresAt:       time.Now().Add(5 * time.Minute),
 	}
 	if err := s.verificationRepo.Create(ctx, token); err != nil {
 		return errors.InternalErr(err)
@@ -226,10 +224,6 @@ func (s *AccountService) ConfirmLimitsChange(ctx context.Context, accountNumber 
 	token, err := s.verificationRepo.FindByAccountAndClient(ctx, accountNumber, clientID)
 	if err != nil {
 		return errors.NotFoundErr("no pending limits change for this account")
-	}
-
-	if time.Now().After(token.ExpiresAt) {
-		return errors.BadRequestErr("verification code has expired")
 	}
 
 	secret, err := s.mobileSecretClient.GetMobileSecret(ctx, authorizationHeader)
