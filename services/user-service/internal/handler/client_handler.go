@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"common/pkg/auth"
 	"common/pkg/errors"
 	"user-service/internal/dto"
 	"user-service/internal/service"
@@ -44,4 +45,27 @@ func (h *ClientHandler) Register(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Registration successful. Please check your email to activate your account."})
+}
+
+// GetMobileSecret godoc
+// @Summary Get mobile verification secret
+// @Description Returns TOTP secret for currently authenticated client
+// @Tags clients
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} dto.MobileSecretResponse
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Router /api/secret-mobile [get]
+func (h *ClientHandler) GetMobileSecret(c *gin.Context) {
+	authCtx := auth.GetAuth(c)
+
+	secret, err := h.service.GetMobileVerificationSecret(c.Request.Context(), *authCtx.ClientID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.MobileSecretResponse{Secret: secret})
 }

@@ -1,38 +1,50 @@
 package service
 
 import (
+	"banking-service/internal/client"
 	"banking-service/internal/dto"
 	"banking-service/internal/model"
 	"banking-service/internal/repository"
 	"bytes"
+	"common/pkg/auth"
 	"common/pkg/errors"
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-pdf/fpdf"
 )
+
+type paymentTransactionProcessor interface {
+	Process(ctx context.Context, transactionID uint) error
+}
 
 type PaymentService struct {
 	paymentRepo          repository.PaymentRepository
 	transactionRepo      repository.TransactionRepository
 	accountRepo          repository.AccountRepository
+	mobileSecretClient   client.MobileSecretClient
 	exchangeService      CurrencyConverter
-	transactionProcessor *TransactionProcessor
+	transactionProcessor paymentTransactionProcessor
+	now                  func() time.Time
 }
 
 func NewPaymentService(
-	paymentRepo          repository.PaymentRepository,
-	transactionRepo      repository.TransactionRepository,
-	accountRepo          repository.AccountRepository,
-	exchangeService      CurrencyConverter,
+	paymentRepo repository.PaymentRepository,
+	transactionRepo repository.TransactionRepository,
+	accountRepo repository.AccountRepository,
+	mobileSecretClient client.MobileSecretClient,
+	exchangeService CurrencyConverter,
 	transactionProcessor *TransactionProcessor,
 ) *PaymentService {
 	return &PaymentService{
 		paymentRepo:          paymentRepo,
 		transactionRepo:      transactionRepo,
 		accountRepo:          accountRepo,
+		mobileSecretClient:   mobileSecretClient,
 		exchangeService:      exchangeService,
 		transactionProcessor: transactionProcessor,
+		now:                  time.Now,
 	}
 }
 
@@ -196,6 +208,7 @@ func (s *PaymentService) GenerateReceipt(ctx context.Context, id uint) ([]byte, 
 
 	return buf.Bytes(), nil
 }
+
 func (s *PaymentService) GetAccountPayments(ctx context.Context, accountNumber string, filters *dto.PaymentFilters) ([]model.Payment, int64, error) {
 	payments, total, err := s.paymentRepo.FindByAccount(ctx, accountNumber, filters)
 	if err != nil {
@@ -212,7 +225,7 @@ func (s *PaymentService) GetClientPayments(ctx context.Context, clientID uint, f
 	return payments, total, nil
 }
 
-func (s *PaymentService) VerifyPayment(ctx context.Context, id uint, code string) (*model.Payment, error) {
+func (s *PaymentService) VerifyPayment(ctx context.Context, id uint, code, authorizationHeader string) (*model.Payment, error) {
 	payment, err := s.paymentRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, errors.NotFoundErr("payment not found")
@@ -226,7 +239,23 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, id uint, code string
 		return nil, errors.BadRequestErr("payment already processed")
 	}
 
-	// TODO: mobile verification (#56) - verifikacija putem mobilne aplikacije
+	authCtx := auth.GetAuthFromContext(ctx)
+	payerAccount, err := s.accountRepo.FindByAccountNumber(ctx, transaction.PayerAccountNumber)
+	if err != nil {
+		return nil, errors.NotFoundErr("payer account not found")
+	}
+	if payerAccount.ClientID != *authCtx.ClientID {
+		return nil, errors.ForbiddenErr("cannot verify payment for another client")
+	}
+
+	secret, err := s.mobileSecretClient.GetMobileSecret(ctx, authorizationHeader)
+	if err != nil {
+		return nil, errors.ServiceUnavailableErr(err)
+	}
+
+	if !verifyTOTPCode(secret, code, s.now(), totpAllowedSkew) {
+		return nil, errors.BadRequestErr("invalid verification code")
+	}
 
 	// Process transaction
 	err = s.transactionProcessor.Process(ctx, transaction.TransactionID)
@@ -236,5 +265,3 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, id uint, code string
 
 	return payment, nil
 }
-
-

@@ -4,9 +4,10 @@ import (
 	"banking-service/internal/dto"
 	"banking-service/internal/service"
 	"common/pkg/errors"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 type AccountHandler struct {
@@ -159,13 +160,13 @@ func (h *AccountHandler) UpdateAccountName(c *gin.Context) {
 
 // RequestLimitsChange godoc
 // @Summary Request account limit change
-// @Description Initiates a limit change request for an account. Sends a verification code for confirmation via mobile app, temporarily returned in body as code.
+// @Description Initiates a limit change request for an account. Confirmation uses TOTP code generated in the mobile app.
 // @Tags accounts
 // @Accept json
 // @Produce json
 // @Param accountNumber path string true "Account number"
 // @Param request body dto.RequestLimitsChangeRequest true "New daily and monthly limits"
-// @Success 200 {object} dto.RequestLimitsChangeResponse
+// @Success 200
 // @Failure 400 {object} errors.AppError
 // @Failure 403 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
@@ -185,13 +186,12 @@ func (h *AccountHandler) RequestLimitsChange(c *gin.Context) {
 		return
 	}
 
-	code, err := h.service.RequestLimitsChange(c.Request.Context(), accountNumber, clientId, req.DailyLimit, req.MonthlyLimit)
-	if err != nil {
+	if err := h.service.RequestLimitsChange(c.Request.Context(), accountNumber, clientId, req.DailyLimit, req.MonthlyLimit); err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.RequestLimitsChangeResponse{Code: code}) //only for testing purposes, in a real app it would be sent to mobile app
+	c.Status(http.StatusOK)
 }
 
 // ConfirmLimitsChange godoc
@@ -201,7 +201,7 @@ func (h *AccountHandler) RequestLimitsChange(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param accountNumber path string true "Account number"
-// @Param request body dto.ConfirmLimitsChangeRequest true "Verification code, you can use 1234 for testing but still needs request to be made first"
+// @Param request body dto.ConfirmLimitsChangeRequest true "Verification code generated in mobile app"
 // @Success 200
 // @Failure 400 {object} errors.AppError
 // @Failure 403 {object} errors.AppError
@@ -222,7 +222,7 @@ func (h *AccountHandler) ConfirmLimitsChange(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.ConfirmLimitsChange(c.Request.Context(), accountNumber, clientId, req.Code); err != nil {
+	if err := h.service.ConfirmLimitsChange(c.Request.Context(), accountNumber, clientId, req.Code, c.GetHeader("Authorization")); err != nil {
 		c.Error(err)
 		return
 	}
