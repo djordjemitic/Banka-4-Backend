@@ -76,8 +76,8 @@ var ValidBusinessSubtypes = map[Subtype]bool{
 
 type Account struct {
 	AccountNumber string `gorm:"primaryKey;size:18"`
-	Name          string
-	ClientID      uint `gorm:"not null;index"`
+	Name          string `gorm:"uniqueIndex"`
+	ClientID      uint   `gorm:"not null;index"`
 
 	CompanyID *uint `gorm:"index"`
 	Company   *Company

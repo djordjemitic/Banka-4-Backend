@@ -93,8 +93,8 @@ func (r *accountRepository) FindByAccountNumber(ctx context.Context, accountNumb
 }
 
 func (r *accountRepository) UpdateBalance(ctx context.Context, account *model.Account) error {
-  db := db.DBFromContext(ctx, r.db)
-  
+	db := db.DBFromContext(ctx, r.db)
+
 	return db.WithContext(ctx).Model(account).Updates(map[string]interface{}{
 		"balance":           account.Balance,
 		"available_balance": account.AvailableBalance,

@@ -62,6 +62,7 @@ func main() {
 			repository.NewAuthorizedPersonRepository,
 			repository.NewCardRequestRepository,
 			repository.NewExchangeRateRepository,
+			repository.NewCurrencyRepository,
 			service.NewExchangeService,
 			func(svc *service.ExchangeService) service.CurrencyConverter {
 				return svc
@@ -77,7 +78,7 @@ func main() {
 			service.NewPayeeService,
 			service.NewPaymentService,
 			service.NewTransactionProcessor,
-      service.NewCardService,
+			service.NewCardService,
 			service.NewEmailService,
 			service.NewLoanService,
 			handler.NewAccountHandler,

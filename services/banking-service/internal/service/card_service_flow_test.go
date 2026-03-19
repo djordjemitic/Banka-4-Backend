@@ -65,9 +65,9 @@ func (f *fakeCardServiceAccountRepo) UpdateLimits(_ context.Context, _ string, _
 
 
 type fakeCardServiceCardRepo struct {
-	cards         map[uint]*model.Card
-	nextID        uint
-	existingPANs  map[string]bool
+	cards        map[uint]*model.Card
+	nextID       uint
+	existingPANs map[string]bool
 }
 
 func (r *fakeCardServiceCardRepo) Create(_ context.Context, card *model.Card) error {
@@ -164,8 +164,8 @@ func (r *fakeCardServiceCardRepo) Update(_ context.Context, card *model.Card) er
 }
 
 type fakeCardServiceAuthorizedPersonRepo struct {
-	people  map[uint]*model.AuthorizedPerson
-	nextID  uint
+	people map[uint]*model.AuthorizedPerson
+	nextID uint
 }
 
 func (r *fakeCardServiceAuthorizedPersonRepo) Create(_ context.Context, person *model.AuthorizedPerson) error {
@@ -254,9 +254,9 @@ func (f *fakeCardServiceUserClient) GetEmployeeByID(_ context.Context, _ uint) (
 }
 
 type sentEmail struct {
-to      string
-subject string
-body    string
+	to      string
+	subject string
+	body    string
 }
 
 type fakeCardServiceMailer struct {

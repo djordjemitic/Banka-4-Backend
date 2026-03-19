@@ -51,12 +51,12 @@ func (f *fakePaymentRepo) FindByAccount(_ context.Context, _ string, _ *dto.Paym
 }
 
 type fakeTransactionRepo struct {
-	createErr       error
-	getErr          error
-	updateErr       error
-	transaction     *model.Transaction
-	returnedTx      *model.Transaction
-	returnedTxErr   error
+	createErr     error
+	getErr        error
+	updateErr     error
+	transaction   *model.Transaction
+	returnedTx    *model.Transaction
+	returnedTxErr error
 }
 
 func (f *fakeTransactionRepo) Create(_ context.Context, t *model.Transaction) error {
