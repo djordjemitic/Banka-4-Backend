@@ -4,6 +4,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/handler"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/config"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/permission"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/server"
 	"go.uber.org/fx"
@@ -45,6 +46,12 @@ func main() {
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
+		}),
+		fx.Invoke(func(db *gorm.DB) error {
+			return db.AutoMigrate(
+				&model.Listing{},
+				&model.ListingDailyPriceInfo{},
+			)
 		}),
 		fx.Invoke(server.NewServer),
 	).Run()

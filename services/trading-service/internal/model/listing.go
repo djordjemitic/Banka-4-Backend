@@ -5,7 +5,7 @@ import (
 )
 
 type Listing struct {
-	ID          uint      `gorm:"primaryKey;autoIncrement"`
+	ListingID   uint      `gorm:"primaryKey;autoIncrement"`
 	Ticker      string    `gorm:"not null;uniqueIndex;size:20"`
 	Name        string    `gorm:"not null"`
 	ExchangeMIC string    `gorm:"not null;size:10"`
