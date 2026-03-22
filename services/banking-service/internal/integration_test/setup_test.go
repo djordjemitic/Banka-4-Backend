@@ -170,6 +170,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.LoanRequest{},
 		&model.VerificationToken{},
 		&model.ExchangeRate{},
+		&model.Loan{},
+		&model.LoanInstallment{},
 	); err != nil {
 		t.Fatalf("auto migrate test schema: %v", err)
 	}
@@ -212,7 +214,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	transactionProcessor := service.NewTransactionProcessor(accountRepo, transactionRepo, txManager)
 	paymentSvc := service.NewPaymentService(paymentRepo, transactionRepo, accountRepo, mobileSecretCl, converter, transactionProcessor)
 	transferSvc := service.NewTransferService(transferRepo, transactionRepo, accountRepo, converter, txManager, transactionProcessor)
-	loanSvc := service.NewLoanService(accountRepo, loanTypeRepo, loanRepo)
+	loanSvc := service.NewLoanService(accountRepo, loanTypeRepo, loanRepo, transactionProcessor)
 
 	healthHandler := handler.NewHealthHandler()
 	accountHandler := handler.NewAccountHandler(accountSvc)

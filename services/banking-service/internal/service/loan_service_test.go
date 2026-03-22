@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -23,6 +24,8 @@ type fakeLoanRepo struct {
 	findAllErr error
 	updateErr  error
 	updated    *model.LoanRequest
+	loan       *model.Loan
+	loans      []model.Loan
 }
 
 func (f *fakeLoanRepo) CreateRequest(_ context.Context, r *model.LoanRequest) error {
@@ -55,6 +58,38 @@ func (f *fakeLoanRepo) Update(_ context.Context, r *model.LoanRequest) error {
 	}
 	f.updated = r
 	return nil
+}
+
+func (f *fakeLoanRepo) CreateLoan(_ context.Context, _ *model.Loan) error {
+	return f.createErr
+}
+
+func (f *fakeLoanRepo) FindLoanByRequestID(_ context.Context, _ uint) (*model.Loan, error) {
+	return f.loan, f.findErr
+}
+
+func (f *fakeLoanRepo) UpdateLoan(_ context.Context, _ *model.Loan) error {
+	return f.updateErr
+}
+
+func (f *fakeLoanRepo) CreateInstallments(_ context.Context, _ []model.LoanInstallment) error {
+	return f.createErr
+}
+
+func (f *fakeLoanRepo) FindDueInstallments(_ context.Context, _ time.Time) ([]model.LoanInstallment, error) {
+	return nil, f.findErr
+}
+
+func (f *fakeLoanRepo) FindRetryInstallments(_ context.Context, _ time.Time) ([]model.LoanInstallment, error) {
+	return nil, f.findErr
+}
+
+func (f *fakeLoanRepo) UpdateInstallment(_ context.Context, _ *model.LoanInstallment) error {
+	return f.updateErr
+}
+
+func (f *fakeLoanRepo) FindActiveVariableRateLoans(_ context.Context) ([]model.Loan, error) {
+	return f.loans, f.findErr
 }
 
 // ── Fake Loan Type Repository ────────────────────────────────────────
@@ -111,7 +146,7 @@ func newLoanService(
 	loanTypeRepo repository.LoanTypeRepository,
 	loanRepo repository.LoanRepository,
 ) *LoanService {
-	return NewLoanService(accountRepo, loanTypeRepo, loanRepo)
+	return NewLoanService(accountRepo, loanTypeRepo, loanRepo, nil)
 }
 
 func testLoanType() *model.LoanType {
