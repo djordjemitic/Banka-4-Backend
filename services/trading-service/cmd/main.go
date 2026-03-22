@@ -50,6 +50,7 @@ func main() {
 		fx.Invoke(func(db *gorm.DB) error {
 			return db.AutoMigrate(
 				&model.Listing{},
+				&model.Stock{},
 				&model.ListingDailyPriceInfo{},
 			)
 		}),
