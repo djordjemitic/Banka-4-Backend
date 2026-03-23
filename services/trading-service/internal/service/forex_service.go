@@ -70,17 +70,39 @@ func (s *ForexService) refreshFromAPI(ctx context.Context) error {
 	providerUpdatedAt := time.Unix(resp.TimeLastUpdateUnix, 0)
 	providerNextUpdateAt := time.Unix(resp.TimeNextUpdateUnix, 0)
 
-	for quote, rate := range resp.ConversionRates {
+	// sve valute koje podržava banka
+	supported := []string{"EUR", "USD", "CHF", "GBP", "JPY", "CAD", "AUD", "RSD"}
 
-		pair := model.ForexPair{
-			Base:                 resp.BaseCode,
-			Quote:                quote,
-			Rate:                 rate,
-			ProviderUpdatedAt:    providerUpdatedAt,
-			ProviderNextUpdateAt: providerNextUpdateAt,
-		}
-		if err := s.repo.Upsert(ctx, pair); err != nil {
-			return err
+	rates := resp.ConversionRates
+	// Ako base valuta API-ja nije u map, dodaj je sa 1.0
+	rates[resp.BaseCode] = 1.0
+
+	for _, base := range supported {
+		for _, quote := range supported {
+			if base == quote {
+				continue
+			}
+
+			baseRate, ok1 := rates[base]
+			quoteRate, ok2 := rates[quote]
+
+			if !ok1 || !ok2 {
+				// ako nemamo vrednost za neku od valuta, preskoči
+				continue
+			}
+
+			// formula za konverziju: base→quote = quoteRate / baseRate
+			pair := model.ForexPair{
+				Base:                 base,
+				Quote:                quote,
+				Rate:                 quoteRate / baseRate,
+				ProviderUpdatedAt:    providerUpdatedAt,
+				ProviderNextUpdateAt: providerNextUpdateAt,
+			}
+
+			if err := s.repo.Upsert(ctx, pair); err != nil {
+				return err
+			}
 		}
 	}
 

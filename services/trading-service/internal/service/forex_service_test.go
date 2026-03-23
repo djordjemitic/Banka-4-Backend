@@ -24,7 +24,6 @@ func (m *mockExchangeClient) FetchRates(ctx context.Context) (*client.ExchangeRa
 
 // --- Helper funkcija za in-memory CGO-free DB (unikatna baza po testu) ---
 func setupTestDB(t *testing.T) *gorm.DB {
-	// Unikatno ime baze po testu → izbegava deljenje između testova
 	dsn := "file:testdb_" + time.Now().Format("150405.000") + "?mode=memory&_pragma=foreign_keys(1)"
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
@@ -49,8 +48,14 @@ func TestRefreshFromAPI(t *testing.T) {
 		TimeLastUpdateUnix: time.Now().Unix(),
 		TimeNextUpdateUnix: time.Now().Add(time.Hour).Unix(),
 		ConversionRates: map[string]float64{
-			"USD": 0.0085,
+			"RSD": 1,
 			"EUR": 0.0080,
+			"USD": 0.0085,
+			"CHF": 0.0079,
+			"GBP": 0.0069,
+			"JPY": 1.2,
+			"CAD": 0.011,
+			"AUD": 0.012,
 		},
 	}
 
@@ -67,16 +72,18 @@ func TestRefreshFromAPI(t *testing.T) {
 		t.Fatalf("query failed: %v", err)
 	}
 
-	if len(pairs) != 2 {
-		t.Fatalf("expected 2 forex pairs, got %d", len(pairs))
+	// 8 valuta → 8*7 = 56 parova
+	if len(pairs) != 56 {
+		t.Fatalf("expected 56 forex pairs, got %d", len(pairs))
 	}
 
+	// opcionalna provera parova, samo nekoliko primera
 	for _, pair := range pairs {
-		if pair.Base != "RSD" {
-			t.Errorf("expected base RSD, got %s", pair.Base)
+		if pair.Base == pair.Quote {
+			t.Errorf("base and quote should not be same: %s/%s", pair.Base, pair.Quote)
 		}
-		if pair.Quote != "USD" && pair.Quote != "EUR" {
-			t.Errorf("unexpected quote %s", pair.Quote)
+		if pair.Rate <= 0 {
+			t.Errorf("rate should be positive for %s/%s, got %f", pair.Base, pair.Quote, pair.Rate)
 		}
 	}
 }
@@ -90,7 +97,14 @@ func TestInitialize_SeedsDB(t *testing.T) {
 		TimeLastUpdateUnix: time.Now().Unix(),
 		TimeNextUpdateUnix: time.Now().Add(time.Hour).Unix(),
 		ConversionRates: map[string]float64{
+			"RSD": 1,
+			"EUR": 0.0080,
 			"USD": 0.0085,
+			"CHF": 0.0079,
+			"GBP": 0.0069,
+			"JPY": 1.2,
+			"CAD": 0.011,
+			"AUD": 0.012,
 		},
 	}
 
@@ -98,7 +112,7 @@ func TestInitialize_SeedsDB(t *testing.T) {
 	repo := repository.NewForexRepository(db)
 	service := NewForexService(repo, mockClient)
 
-	// DB prazna → Initialize seeduje
+	// DB prazna → Initialize seeduje sve parove
 	service.Initialize(context.Background())
 
 	var count int64
@@ -106,21 +120,18 @@ func TestInitialize_SeedsDB(t *testing.T) {
 		t.Fatalf("count query failed: %v", err)
 	}
 
-	if count != 1 {
-		t.Fatalf("expected 1 forex pair, got %d", count)
+	if count != 56 {
+		t.Fatalf("expected 56 forex pairs, got %d", count)
 	}
 
-	// Sada DB ima 1 par, dodajemo novu valutu u mock client
-	mockClient.data.ConversionRates["EUR"] = 0.0080
-
-	// Initialize se poziva, ali DB već nije prazna → ne ubacuje EUR
+	// ponovni Initialize → ne dodaje nove
 	service.Initialize(context.Background())
 
 	if err := db.Model(&model.ForexPair{}).Count(&count).Error; err != nil {
 		t.Fatalf("count query failed: %v", err)
 	}
 
-	if count != 1 { // Očekujemo da i dalje bude 1
-		t.Fatalf("expected count still 1, got %d", count)
+	if count != 56 {
+		t.Fatalf("expected count still 56, got %d", count)
 	}
 }
