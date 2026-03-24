@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/handler"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
@@ -30,7 +31,7 @@ import (
 // @name Authorization
 // @description JWT Authorization header using the Bearer scheme.
 func main() {
-	fx.New(
+	app := fx.New(
 		fx.Provide(
 			config.Load,
 			func(cfg *config.Configuration) (*gorm.DB, error) {
@@ -56,23 +57,29 @@ func main() {
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
 		}),
-		fx.Invoke(func(db *gorm.DB) error {
-			return db.AutoMigrate(
+		fx.Invoke(func(db *gorm.DB) {
+			if err := db.AutoMigrate(
 				&model.Listing{},
 				&model.ListingDailyPriceInfo{},
 				&model.ForexPair{},
-			)
+			); err != nil {
+				log.Fatalf("AutoMigrate failed: %v", err)
+			} else {
+				log.Println("AutoMigrate successful ✅")
+			}
 		}),
 		fx.Invoke(server.NewServer),
 		fx.Invoke(func(lifecycle fx.Lifecycle, forexService *service.ForexService) {
 			lifecycle.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
-					// Seed DB if empty and start refresh loop
 					forexService.Initialize(ctx)
 					forexService.StartBackgroundRefresh(ctx)
+					log.Println("ForexService background refresh started ✅")
 					return nil
 				},
 			})
 		}),
-	).Run()
+	)
+
+	app.Run()
 }
