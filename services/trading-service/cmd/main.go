@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/handler"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/config"
@@ -46,6 +48,13 @@ func main() {
 				return permission.NewGrpcPermissionProvider(c)
 			},
 			handler.NewHealthHandler,
+
+			func(cfg *config.Configuration) *client.StockClient {
+				return client.NewStockClient(cfg.FinnhubAPIKey)
+			},
+			repository.NewListingRepository,
+			repository.NewStockRepository,
+			service.NewStockService,
 			repository.NewExchangeRepository,
 			service.NewExchangeService,
 			handler.NewExchangeHandler,
@@ -56,9 +65,16 @@ func main() {
 		fx.Invoke(func(db *gorm.DB) error {
 			return db.AutoMigrate(
 				&model.Listing{},
+				&model.Stock{},
 				&model.ListingDailyPriceInfo{},
 				&model.Exchange{},
 			)
+		}),
+		fx.Invoke(func(svc *service.StockService) {
+			go func() {
+				svc.Initialize(context.Background())
+				svc.StartBackgroundRefresh()
+			}()
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
 			return seed.RunExchangeSeed(db)
