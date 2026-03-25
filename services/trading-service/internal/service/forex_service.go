@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
@@ -15,6 +16,8 @@ const refreshInterval = 1 * time.Hour
 type ForexService struct {
 	repo   repository.ForexRepository
 	client client.ExchangeRateClient
+	mu     sync.Mutex
+	cancel context.CancelFunc
 }
 
 func NewForexService(repo repository.ForexRepository, client client.ExchangeRateClient) *ForexService {
@@ -25,8 +28,6 @@ func NewForexService(repo repository.ForexRepository, client client.ExchangeRate
 }
 
 func (s *ForexService) Initialize(ctx context.Context) {
-	var count int64
-
 	count, err := s.repo.Count(ctx)
 	if err != nil {
 		log.Println("failed counting forex pairs:", err)
@@ -43,14 +44,22 @@ func (s *ForexService) Initialize(ctx context.Context) {
 	}
 }
 
-func (s *ForexService) StartBackgroundRefresh(ctx context.Context) {
-	ticker := time.NewTicker(refreshInterval)
+func (s *ForexService) Start() {
+	s.mu.Lock()
+	if s.cancel != nil {
+		s.mu.Unlock()
+		return // već radi
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+	s.mu.Unlock()
 
+	ticker := time.NewTicker(refreshInterval)
 	go func() {
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
-				ticker.Stop()
 				return
 			case <-ticker.C:
 				if err := s.refreshFromAPI(ctx); err != nil {
@@ -59,6 +68,17 @@ func (s *ForexService) StartBackgroundRefresh(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+func (s *ForexService) Stop() {
+	s.mu.Lock()
+	cancel := s.cancel
+	s.cancel = nil
+	s.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func (s *ForexService) refreshFromAPI(ctx context.Context) error {
@@ -74,7 +94,6 @@ func (s *ForexService) refreshFromAPI(ctx context.Context) error {
 	supported := []string{"EUR", "USD", "CHF", "GBP", "JPY", "CAD", "AUD", "RSD"}
 
 	rates := resp.ConversionRates
-	// Ako base valuta API-ja nije u map, dodaj je sa 1.0
 	rates[resp.BaseCode] = 1.0
 
 	for _, base := range supported {
@@ -87,11 +106,9 @@ func (s *ForexService) refreshFromAPI(ctx context.Context) error {
 			quoteRate, ok2 := rates[quote]
 
 			if !ok1 || !ok2 {
-				// ako nemamo vrednost za neku od valuta, preskoči
 				continue
 			}
 
-			// formula za konverziju: base→quote = quoteRate / baseRate
 			pair := model.ForexPair{
 				Base:                 base,
 				Quote:                quote,
