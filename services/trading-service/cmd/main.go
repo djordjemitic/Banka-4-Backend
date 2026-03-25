@@ -12,6 +12,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/seed"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/server"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/service"
+
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
@@ -68,6 +69,7 @@ func main() {
 				&model.Stock{},
 				&model.ListingDailyPriceInfo{},
 				&model.Exchange{},
+				&model.FuturesContract{},
 			)
 		}),
 		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {
@@ -82,6 +84,9 @@ func main() {
 					return nil
 				},
 			})
+		}),
+		fx.Invoke(func(db *gorm.DB) error {
+			return seed.SeedFuturesContracts(db)
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
 			return seed.RunExchangeSeed(db)
