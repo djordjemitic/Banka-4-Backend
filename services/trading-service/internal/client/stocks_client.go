@@ -100,3 +100,41 @@ func (c *StockClient) GetBasicFinancials(ticker string) (*BasicFinancials, error
 	}
 	return &f, nil
 }
+
+type OptionContract struct {
+	ContractName      string  `json:"contractName"`
+	ContractSize      string  `json:"contractSize"`
+	Currency          string  `json:"currency"`
+	Type              string  `json:"type"`
+	InTheMoney        bool    `json:"inTheMoney"`
+	Strike            float64 `json:"strike"`
+	LastPrice         float64 `json:"lastPrice"`
+	Bid               float64 `json:"bid"`
+	Ask               float64 `json:"ask"`
+	Change            float64 `json:"change"`
+	ChangePercent     float64 `json:"changePercent"`
+	Volume            int     `json:"volume"`
+	OpenInterest      int     `json:"openInterest"`
+	ImpliedVolatility float64 `json:"impliedVolatility"`
+}
+
+type OptionChainExpiration struct {
+	ExpirationDate string `json:"expirationDate"`
+	Options        struct {
+		Call []OptionContract `json:"CALL"`
+		Put  []OptionContract `json:"PUT"`
+	} `json:"options"`
+}
+
+type OptionChainResponse struct {
+	Code string                  `json:"code"`
+	Data []OptionChainExpiration `json:"data"`
+}
+
+func (c *StockClient) GetOptionChain(symbol string) (*OptionChainResponse, error) {
+	var resp OptionChainResponse
+	if err := c.get(fmt.Sprintf("/stock/option-chain?symbol=%s", symbol), &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
