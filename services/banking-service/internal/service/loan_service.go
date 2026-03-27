@@ -2,11 +2,14 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
@@ -18,21 +21,30 @@ type LoanService struct {
 	loanRepo        repository.LoanRepository
 	loanRequestRepo repository.LoanRequestRepository
 	txProcessor     *TransactionProcessor
+	txManager       repository.TransactionManager
+	userClient      client.UserClient
+	mailer          Mailer
 }
 
 func NewLoanService(
 	accountRepo repository.AccountRepository,
 	loanTypeRepo repository.LoanTypeRepository,
-	loanRepo repository.LoanRepository,
 	loanRequestRepo repository.LoanRequestRepository,
+	loanRepo repository.LoanRepository,
 	txProcessor *TransactionProcessor,
+	txManager repository.TransactionManager,
+	userClient client.UserClient,
+	mailer Mailer,
 ) *LoanService {
 	return &LoanService{
-		accountRepo:     accountRepo,
-		loanTypeRepo:    loanTypeRepo,
-		loanRepo:        loanRepo,
+		accountRepo:  accountRepo,
+		loanTypeRepo: loanTypeRepo,
 		loanRequestRepo: loanRequestRepo,
-		txProcessor:     txProcessor,
+		loanRepo:     loanRepo,
+		txProcessor:  txProcessor,
+		txManager:    txManager,
+		userClient:   userClient,
+		mailer:       mailer,
 	}
 }
 
@@ -69,7 +81,15 @@ func (s *LoanService) SubmitLoanRequest(ctx context.Context, req *dto.CreateLoan
 	}
 
 	if req.RepaymentPeriod < loanType.MinRepaymentPeriod || req.RepaymentPeriod > loanType.MaxRepaymentPeriod {
-		return nil, errors.BadRequestErr("repayment perion is not valid for loan type")
+		return nil, errors.BadRequestErr("repayment period is not valid for loan type")
+	}
+
+	client, err := s.userClient.GetClientByID(ctx, clientID)
+	if err != nil {
+		return nil, errors.ServiceUnavailableErr(err)
+	}
+	if client == nil {
+		return nil, errors.BadRequestErr("client not found in user service")
 	}
 
 	// RAČUNANJE KAMATE I RATE
@@ -91,6 +111,10 @@ func (s *LoanService) SubmitLoanRequest(ctx context.Context, req *dto.CreateLoan
 		return nil, errors.InternalErr(err)
 	}
 
+	if err := s.mailer.Send(client.Email, "Loan submitted", "Your loan request has been succesfully submitted."); err != nil {
+		log.Printf("failed to send loan request confirmation email to client_id=%d: %v", client.Id, err)
+	}
+
 	return &dto.CreateLoanResponse{
 		RequestID:          newRequest.ID,
 		Status:             newRequest.Status,
@@ -106,18 +130,18 @@ func (s *LoanService) GetClientLoans(ctx context.Context, clientID uint, sortByA
 
 	var response []dto.LoanResponse
 	for _, l := range loans {
-		account, err := s.accountRepo.FindByAccountNumber(ctx, l.AccountNumber)
+		account, err := s.accountRepo.FindByAccountNumber(ctx, l.LoanRequest.AccountNumber)
 		if err != nil {
 			return nil, errors.InternalErr(err)
 		}
 
 		response = append(response, dto.LoanResponse{
 			ID:                 l.ID,
-			LoanType:           l.LoanType.Name,
-			Amount:             l.Amount,
+			LoanType:           l.LoanRequest.LoanType.Name,
+			Amount:             l.LoanRequest.Amount,
 			Currency:           account.Currency.Code,
 			MonthlyInstallment: l.MonthlyInstallment,
-			Status:             l.Status,
+			Status:             l.LoanRequest.Status,
 		})
 	}
 	return response, nil
@@ -129,17 +153,16 @@ func (s *LoanService) GetLoanDetails(ctx context.Context, clientID uint, loanID 
 		return nil, errors.NotFoundErr("loan not found")
 	}
 
-	// Generišemo plan otplate (Installments)
 	var installments []dto.Installment
 	for i := 1; i <= loan.RepaymentPeriod; i++ {
 		installments = append(installments, dto.Installment{
 			Number: i,
 			Amount: loan.MonthlyInstallment,
-			Status: "UPCOMING", // Svi su upcoming dok se ne napravi payment sistem
+			Status: "UPCOMING",
 		})
 	}
 
-	account, err := s.accountRepo.FindByAccountNumber(ctx, loan.AccountNumber)
+	account, err := s.accountRepo.FindByAccountNumber(ctx, loan.LoanRequest.AccountNumber)
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -147,14 +170,14 @@ func (s *LoanService) GetLoanDetails(ctx context.Context, clientID uint, loanID 
 	return &dto.LoanDetailsResponse{
 		LoanResponse: dto.LoanResponse{
 			ID:                 loan.ID,
-			LoanType:           loan.LoanType.Name,
-			Amount:             loan.Amount,
+			LoanType:           loan.LoanRequest.LoanType.Name,
+			Amount:             loan.LoanRequest.Amount,
 			Currency:           account.Currency.Code,
 			MonthlyInstallment: loan.MonthlyInstallment,
-			Status:             loan.Status,
+			Status:             loan.LoanRequest.Status,
 		},
 		RepaymentPeriod: loan.RepaymentPeriod,
-		InterestRate:    loan.CalculatedRate,
+		InterestRate:    loan.InterestRate,
 		Installments:    installments,
 	}, nil
 }
@@ -221,52 +244,13 @@ func (s *LoanService) ApproveLoanRequest(ctx context.Context, id uint) error {
 		return errors.BadRequestErr("insufficient bank funds to approve loan")
 	}
 
-	transaction := &model.Transaction{
-		PayerAccountNumber:     bankAccountNumber,
-		RecipientAccountNumber: request.AccountNumber,
-		StartAmount:            request.Amount,
-		StartCurrencyCode:      clientAccount.Currency.Code,
-		EndAmount:              request.Amount,
-		EndCurrencyCode:        clientAccount.Currency.Code,
-		Status:                 model.TransactionProcessing,
-	}
-	if err := s.txProcessor.transactionRepo.Create(ctx, transaction); err != nil {
-		return errors.InternalErr(err)
-	}
-
-	if err := s.txProcessor.Process(ctx, transaction.TransactionID); err != nil {
-		return errors.InternalErr(err)
-	}
-
-	request.Status = model.LoanRequestApproved
-	if err := s.loanRequestRepo.Update(ctx, request); err != nil {
-		return errors.InternalErr(err)
-	}
-
 	now := time.Now()
 	firstInstallmentDate := time.Date(now.Year(), now.Month()+1, now.Day(), 0, 0, 0, 0, time.UTC)
-
-	loan := &model.Loan{
-		LoanRequestID:       request.ID,
-		TransactionID:       &transaction.TransactionID,
-		MonthlyInstallment:  request.MonthlyInstallment,
-		InterestRate:        request.CalculatedRate,
-		IsVariableRate:      false,
-		RepaymentPeriod:     request.RepaymentPeriod,
-		PaidInstallments:    0,
-		StartDate:           now,
-		NextInstallmentDate: firstInstallmentDate,
-		Status:              model.LoanStatusActive,
-	}
-	if err := s.loanRepo.CreateLoan(ctx, loan); err != nil {
-		return errors.InternalErr(err)
-	}
 
 	installments := make([]model.LoanInstallment, request.RepaymentPeriod)
 	for i := 0; i < request.RepaymentPeriod; i++ {
 		dueDate := time.Date(now.Year(), now.Month()+time.Month(i+1), now.Day(), 0, 0, 0, 0, time.UTC)
 		installments[i] = model.LoanInstallment{
-			LoanID:            loan.ID,
 			InstallmentNumber: i + 1,
 			Amount:            request.MonthlyInstallment,
 			InterestRate:      request.CalculatedRate,
@@ -274,11 +258,56 @@ func (s *LoanService) ApproveLoanRequest(ctx context.Context, id uint) error {
 			Status:            model.InstallmentStatusPending,
 		}
 	}
-	if err := s.loanRepo.CreateInstallments(ctx, installments); err != nil {
-		return errors.InternalErr(err)
-	}
 
-	return nil
+	return s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		transaction := &model.Transaction{
+			PayerAccountNumber:     bankAccountNumber,
+			RecipientAccountNumber: request.AccountNumber,
+			StartAmount:            request.Amount,
+			StartCurrencyCode:      clientAccount.Currency.Code,
+			EndAmount:              request.Amount,
+			EndCurrencyCode:        clientAccount.Currency.Code,
+			Status:                 model.TransactionProcessing,
+		}
+		if err := s.txProcessor.transactionRepo.Create(txCtx, transaction); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		if err := s.txProcessor.Process(txCtx, transaction.TransactionID); err != nil {
+			return err
+		}
+
+		request.Status = model.LoanRequestApproved
+		if err := s.loanRequestRepo.Update(txCtx, request); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		loan := &model.Loan{
+			LoanRequestID:       request.ID,
+			TransactionID:       &transaction.TransactionID,
+			MonthlyInstallment:  request.MonthlyInstallment,
+			InterestRate:        request.CalculatedRate,
+			IsVariableRate:      false,
+			RepaymentPeriod:     request.RepaymentPeriod,
+			PaidInstallments:    0,
+			StartDate:           now,
+			NextInstallmentDate: firstInstallmentDate,
+			Status:              model.LoanStatusActive,
+		}
+		if err := s.loanRepo.CreateLoan(txCtx, loan); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		for i := range installments {
+			installments[i].LoanID = loan.ID
+		}
+
+		if err := s.loanRepo.CreateInstallments(txCtx, installments); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		return nil
+	})
 }
 
 func (s *LoanService) RejectLoanRequest(ctx context.Context, id uint) error {
@@ -293,6 +322,18 @@ func (s *LoanService) RejectLoanRequest(ctx context.Context, id uint) error {
 
 	if request.Status != model.LoanRequestPending {
 		return errors.BadRequestErr("loan request is not pending")
+	}
+
+	client, err := s.userClient.GetClientByID(ctx, request.ClientID)
+	if err != nil {
+		return errors.ServiceUnavailableErr(err)
+	}
+	if client == nil {
+		return errors.InternalErr(fmt.Errorf("client not found in user service"))
+	}
+
+	if err := s.mailer.Send(client.Email, "Loan request rejected", "Your loan request has been rejected."); err != nil {
+		log.Printf("failed to send loan rejection notification email to client_id=%d: %v", client.Id, err)
 	}
 
 	request.Status = model.LoanRequestRejected

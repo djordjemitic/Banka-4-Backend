@@ -101,6 +101,8 @@ func SetupRoutes(
 			emp.GET("/:id", auth.RequirePermission(permission.EmployeeView), empHandler.GetEmployee)
 			emp.PATCH("/:id", auth.RequirePermission(permission.EmployeeUpdate), empHandler.UpdateEmployee)
 			emp.GET("", auth.RequirePermission(permission.EmployeeView), empHandler.ListEmployees)
+			emp.POST("/:id/deactivate", auth.RequirePermission(permission.EmployeeUpdate), empHandler.DeactivateEmployee)
+
 		}
 
 		cli := api.Group("/clients")

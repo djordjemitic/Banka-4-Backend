@@ -3,19 +3,7 @@
 package integration_test
 
 import (
-	"banking-service/internal/client"
-	"banking-service/internal/config"
-	"banking-service/internal/handler"
-	"banking-service/internal/model"
-	"banking-service/internal/repository"
-	"banking-service/internal/server"
-	"banking-service/internal/service"
 	"bytes"
-	"common/pkg/auth"
-	commonjwt "common/pkg/jwt"
-	"common/pkg/logging"
-	"common/pkg/pb"
-	"common/pkg/permission"
 	"context"
 	"crypto/hmac"
 	"crypto/sha1"
@@ -23,6 +11,18 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	commonjwt "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/config"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/handler"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/server"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/service"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -168,6 +168,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.Payee{},
 		&model.LoanType{},
 		&model.LoanRequest{},
+		&model.Loan{},
+		&model.LoanInstallment{},
 		&model.VerificationToken{},
 		&model.ExchangeRate{},
 	); err != nil {
@@ -204,15 +206,15 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	exchangeRateRepo := repository.NewExchangeRateRepository(db)
 	txManager := repository.NewGormTransactionManager(db)
 
-	cardSvc := service.NewCardService(accountRepo, cardRepo, authorizedPersonRepo, cardRequestRepo, userCl, mailer)
-	accountSvc := service.NewAccountService(accountRepo, currencyRepo, verificationRepo, userCl, cardSvc, mobileSecretCl, converter)
+	cardSvc := service.NewCardService(accountRepo, cardRepo, authorizedPersonRepo, cardRequestRepo, userCl, mailer, txManager)
+	accountSvc := service.NewAccountService(accountRepo, currencyRepo, verificationRepo, userCl, cardSvc, mobileSecretCl, converter, txManager)
 	companySvc := service.NewCompanyService(companyRepo, userCl, db)
 	payeeSvc := service.NewPayeeService(payeeRepo)
 	exchangeSvc := service.NewExchangeService(exchangeRateRepo, nil)
 	transactionProcessor := service.NewTransactionProcessor(accountRepo, transactionRepo, txManager)
-	paymentSvc := service.NewPaymentService(paymentRepo, transactionRepo, accountRepo, mobileSecretCl, converter, transactionProcessor)
+	paymentSvc := service.NewPaymentService(paymentRepo, transactionRepo, accountRepo, mobileSecretCl, converter, txManager, transactionProcessor)
 	transferSvc := service.NewTransferService(transferRepo, transactionRepo, accountRepo, converter, txManager, transactionProcessor)
-	loanSvc := service.NewLoanService(accountRepo, loanTypeRepo, loanRepo)
+	loanSvc := service.NewLoanService(accountRepo, loanTypeRepo, loanRepo, transactionProcessor, txManager, userCl, mailer)
 
 	healthHandler := handler.NewHealthHandler()
 	accountHandler := handler.NewAccountHandler(accountSvc)
@@ -445,6 +447,8 @@ func seedBankAccounts(t *testing.T, db *gorm.DB, rsdCurrencyID uint) {
 			Status:           "Active",
 			AccountType:      model.AccountTypeBank,
 			AccountKind:      model.AccountKindInternal,
+			DailyLimit:       1_000_000_000,
+			MonthlyLimit:     10_000_000_000,
 		}
 
 		if err := db.Create(bankAccount).Error; err != nil {

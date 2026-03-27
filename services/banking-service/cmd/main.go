@@ -119,6 +119,7 @@ func main() {
 				&model.ExchangeRate{},
 				&model.Transaction{},
 				&model.Payment{},
+				&model.Transfer{},
 				&model.VerificationToken{},
 				&model.LoanType{},
 				&model.LoanRequest{},

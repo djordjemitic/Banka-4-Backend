@@ -8,8 +8,8 @@ import (
 )
 
 type LoanRepository interface {
-	FindByClientID(ctx context.Context, clientID uint, sortByAmountDesc bool) ([]model.LoanRequest, error)
-	FindByIDAndClientID(ctx context.Context, id uint, clientID uint) (*model.LoanRequest, error)
+	FindByClientID(ctx context.Context, clientID uint, sortByAmountDesc bool) ([]model.Loan, error)
+	FindByIDAndClientID(ctx context.Context, id uint, clientID uint) (*model.Loan, error)
 
 	// Metode za aktivne kredite
 	CreateLoan(ctx context.Context, loan *model.Loan) error
