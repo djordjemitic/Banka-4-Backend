@@ -77,6 +77,7 @@ func main() {
 			repository.NewVerificationTokenRepository,
 			repository.NewGormTransactionManager,
 			repository.NewLoanRepository,
+			repository.NewLoanRequestRepository,
 			repository.NewLoanTypeRepository,
 			service.NewAccountService,
 			service.NewCompanyService,

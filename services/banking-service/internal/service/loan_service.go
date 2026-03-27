@@ -2,32 +2,34 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"time"
-	"log"
-	"fmt"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
-	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
 )
 
 type LoanService struct {
-	accountRepo  repository.AccountRepository
-	loanTypeRepo repository.LoanTypeRepository
-	loanRepo     repository.LoanRepository
-	txProcessor  *TransactionProcessor
-	txManager    repository.TransactionManager
-	userClient   client.UserClient
-	mailer       Mailer
+	accountRepo     repository.AccountRepository
+	loanTypeRepo    repository.LoanTypeRepository
+	loanRepo        repository.LoanRepository
+	loanRequestRepo repository.LoanRequestRepository
+	txProcessor     *TransactionProcessor
+	txManager       repository.TransactionManager
+	userClient      client.UserClient
+	mailer          Mailer
 }
 
 func NewLoanService(
 	accountRepo repository.AccountRepository,
 	loanTypeRepo repository.LoanTypeRepository,
+	loanRequestRepo repository.LoanRequestRepository,
 	loanRepo repository.LoanRepository,
 	txProcessor *TransactionProcessor,
 	txManager repository.TransactionManager,
@@ -37,6 +39,7 @@ func NewLoanService(
 	return &LoanService{
 		accountRepo:  accountRepo,
 		loanTypeRepo: loanTypeRepo,
+		loanRequestRepo: loanRequestRepo,
 		loanRepo:     loanRepo,
 		txProcessor:  txProcessor,
 		txManager:    txManager,
@@ -80,7 +83,7 @@ func (s *LoanService) SubmitLoanRequest(ctx context.Context, req *dto.CreateLoan
 	if req.RepaymentPeriod < loanType.MinRepaymentPeriod || req.RepaymentPeriod > loanType.MaxRepaymentPeriod {
 		return nil, errors.BadRequestErr("repayment period is not valid for loan type")
 	}
-	
+
 	client, err := s.userClient.GetClientByID(ctx, clientID)
 	if err != nil {
 		return nil, errors.ServiceUnavailableErr(err)
@@ -104,7 +107,7 @@ func (s *LoanService) SubmitLoanRequest(ctx context.Context, req *dto.CreateLoan
 		Status:             model.LoanRequestPending, // Kreira se sa statusom PENDING, kako piše u tasku
 	}
 
-	if err := s.loanRepo.CreateRequest(ctx, newRequest); err != nil {
+	if err := s.loanRequestRepo.CreateRequest(ctx, newRequest); err != nil {
 		return nil, errors.InternalErr(err)
 	}
 
@@ -127,18 +130,18 @@ func (s *LoanService) GetClientLoans(ctx context.Context, clientID uint, sortByA
 
 	var response []dto.LoanResponse
 	for _, l := range loans {
-		account, err := s.accountRepo.FindByAccountNumber(ctx, l.AccountNumber)
+		account, err := s.accountRepo.FindByAccountNumber(ctx, l.LoanRequest.AccountNumber)
 		if err != nil {
 			return nil, errors.InternalErr(err)
 		}
 
 		response = append(response, dto.LoanResponse{
 			ID:                 l.ID,
-			LoanType:           l.LoanType.Name,
-			Amount:             l.Amount,
+			LoanType:           l.LoanRequest.LoanType.Name,
+			Amount:             l.LoanRequest.Amount,
 			Currency:           account.Currency.Code,
 			MonthlyInstallment: l.MonthlyInstallment,
-			Status:             l.Status,
+			Status:             l.LoanRequest.Status,
 		})
 	}
 	return response, nil
@@ -150,17 +153,16 @@ func (s *LoanService) GetLoanDetails(ctx context.Context, clientID uint, loanID 
 		return nil, errors.NotFoundErr("loan not found")
 	}
 
-	// Generišemo plan otplate (Installments)
 	var installments []dto.Installment
 	for i := 1; i <= loan.RepaymentPeriod; i++ {
 		installments = append(installments, dto.Installment{
 			Number: i,
 			Amount: loan.MonthlyInstallment,
-			Status: "UPCOMING", // Svi su upcoming dok se ne napravi payment sistem
+			Status: "UPCOMING",
 		})
 	}
 
-	account, err := s.accountRepo.FindByAccountNumber(ctx, loan.AccountNumber)
+	account, err := s.accountRepo.FindByAccountNumber(ctx, loan.LoanRequest.AccountNumber)
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -168,20 +170,20 @@ func (s *LoanService) GetLoanDetails(ctx context.Context, clientID uint, loanID 
 	return &dto.LoanDetailsResponse{
 		LoanResponse: dto.LoanResponse{
 			ID:                 loan.ID,
-			LoanType:           loan.LoanType.Name,
-			Amount:             loan.Amount,
+			LoanType:           loan.LoanRequest.LoanType.Name,
+			Amount:             loan.LoanRequest.Amount,
 			Currency:           account.Currency.Code,
 			MonthlyInstallment: loan.MonthlyInstallment,
-			Status:             loan.Status,
+			Status:             loan.LoanRequest.Status,
 		},
 		RepaymentPeriod: loan.RepaymentPeriod,
-		InterestRate:    loan.CalculatedRate,
+		InterestRate:    loan.InterestRate,
 		Installments:    installments,
 	}, nil
 }
 
 func (s *LoanService) GetLoanRequests(ctx context.Context, query *dto.ListLoanRequestsQuery) ([]dto.LoanRequestResponse, int64, error) {
-	requests, total, err := s.loanRepo.FindAll(ctx, query)
+	requests, total, err := s.loanRequestRepo.FindAll(ctx, query)
 	if err != nil {
 		return nil, 0, errors.InternalErr(err)
 	}
@@ -204,7 +206,7 @@ func (s *LoanService) GetLoanRequests(ctx context.Context, query *dto.ListLoanRe
 }
 
 func (s *LoanService) ApproveLoanRequest(ctx context.Context, id uint) error {
-	request, err := s.loanRepo.FindByID(ctx, id)
+	request, err := s.loanRequestRepo.FindByID(ctx, id)
 	if err != nil {
 		return errors.InternalErr(err)
 	}
@@ -276,7 +278,7 @@ func (s *LoanService) ApproveLoanRequest(ctx context.Context, id uint) error {
 		}
 
 		request.Status = model.LoanRequestApproved
-		if err := s.loanRepo.Update(txCtx, request); err != nil {
+		if err := s.loanRequestRepo.Update(txCtx, request); err != nil {
 			return errors.InternalErr(err)
 		}
 
@@ -309,7 +311,7 @@ func (s *LoanService) ApproveLoanRequest(ctx context.Context, id uint) error {
 }
 
 func (s *LoanService) RejectLoanRequest(ctx context.Context, id uint) error {
-	request, err := s.loanRepo.FindByID(ctx, id)
+	request, err := s.loanRequestRepo.FindByID(ctx, id)
 	if err != nil {
 		return errors.InternalErr(err)
 	}
@@ -321,7 +323,7 @@ func (s *LoanService) RejectLoanRequest(ctx context.Context, id uint) error {
 	if request.Status != model.LoanRequestPending {
 		return errors.BadRequestErr("loan request is not pending")
 	}
-	
+
 	client, err := s.userClient.GetClientByID(ctx, request.ClientID)
 	if err != nil {
 		return errors.ServiceUnavailableErr(err)
@@ -335,7 +337,7 @@ func (s *LoanService) RejectLoanRequest(ctx context.Context, id uint) error {
 	}
 
 	request.Status = model.LoanRequestRejected
-	return s.loanRepo.Update(ctx, request)
+	return s.loanRequestRepo.Update(ctx, request)
 }
 
 // AdjustVariableRates mesecno azurira kamatnu stopu za varijabilne kredite.
