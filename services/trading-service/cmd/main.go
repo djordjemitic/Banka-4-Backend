@@ -65,6 +65,10 @@ func main() {
 			repository.NewExchangeRepository,
 			service.NewExchangeService,
 			handler.NewExchangeHandler,
+			repository.NewOrderOwnershipRepository,
+			repository.NewFuturesContractRepository,
+			service.NewPortfolioService,
+			handler.NewPortfolioHandler,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)

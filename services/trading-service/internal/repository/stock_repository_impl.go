@@ -20,3 +20,11 @@ func (r *stockRepository) Upsert(stock *model.Stock) error {
 		Assign(*stock).
 		FirstOrCreate(stock).Error
 }
+
+func (r *stockRepository) FindByListingIDs(listingIDs []uint) ([]model.Stock, error) {
+	var stocks []model.Stock
+	if err := r.db.Where("listing_id IN ?", listingIDs).Preload("Listing").Find(&stocks).Error; err != nil {
+		return nil, err
+	}
+	return stocks, nil
+}

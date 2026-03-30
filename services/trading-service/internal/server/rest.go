@@ -16,17 +16,18 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
 	_ "github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/docs"
 )
 
-func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, exchangeHandler *handler.ExchangeHandler) {
+func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, exchangeHandler *handler.ExchangeHandler, portfolioHandler *handler.PortfolioHandler, verifier auth.TokenVerifier, provider auth.PermissionProvider) {
 	r := gin.New()
 
 	InitRouter(r, cfg)
 
-	SetupRoutes(r, healthHandler, exchangeHandler)
+	SetupRoutes(r, healthHandler, exchangeHandler, portfolioHandler, verifier, provider)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -54,7 +55,7 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 	validator.RegisterValidators()
 }
 
-func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, exchangeHandler *handler.ExchangeHandler) {
+func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, exchangeHandler *handler.ExchangeHandler, portfolioHandler *handler.PortfolioHandler, verifier auth.TokenVerifier, provider auth.PermissionProvider) {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	api := r.Group("/api")
@@ -66,6 +67,16 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, exchangeHa
 			exchanges.GET("", exchangeHandler.GetAll)
 			exchanges.PATCH("/:micCode/toggle", exchangeHandler.ToggleTradingEnabled)
 		}
+
+		authMw := auth.Middleware(verifier, provider)
+
+		client := api.Group("/client")
+		client.Use(authMw, auth.RequireClientSelf("clientId", true))
+		client.GET("/:clientId/assets", portfolioHandler.GetClientPortfolio)
+
+		actuary := api.Group("/actuary")
+		actuary.Use(authMw, auth.RequireIdentityType(auth.IdentityEmployee))
+		actuary.GET("/:actId/assets", portfolioHandler.GetActuaryPortfolio)
 	}
 }
 

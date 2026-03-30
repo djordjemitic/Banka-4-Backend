@@ -4,4 +4,5 @@ import "github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal
 
 type OptionRepository interface {
 	Upsert(option *model.Option) error
+	FindByListingIDs(listingIDs []uint) ([]model.Option, error)
 }
