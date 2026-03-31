@@ -35,7 +35,7 @@ func NewPortfolioService(
 }
 
 func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ownerType model.OwnerType) ([]dto.PortfolioAssetResponse, error) {
-	ownerships, err := s.ownershipRepo.FindByIdentity(identityID, ownerType)
+	ownerships, err := s.ownershipRepo.FindByIdentity(ctx, identityID, ownerType)
 	if err != nil {
 		return nil, pkgerrors.InternalErr(err)
 	}
@@ -107,7 +107,8 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 	}
 	meta := make(map[uint]assetMeta)
 
-	stocks, err := s.stockRepo.FindByListingIDs(listingIDs)
+	// ⚡️ Updated repo calls to include ctx
+	stocks, err := s.stockRepo.FindByListingIDs(ctx, listingIDs)
 	if err != nil {
 		return nil, pkgerrors.InternalErr(err)
 	}
@@ -119,7 +120,7 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 		}
 	}
 
-	options, err := s.optionRepo.FindByListingIDs(listingIDs)
+	options, err := s.optionRepo.FindByListingIDs(ctx, listingIDs)
 	if err != nil {
 		return nil, pkgerrors.InternalErr(err)
 	}
@@ -127,7 +128,7 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 		meta[op.ListingID] = assetMeta{assetType: dto.AssetTypeOption}
 	}
 
-	futures, err := s.futuresRepo.FindByListingIDs(listingIDs)
+	futures, err := s.futuresRepo.FindByListingIDs(ctx, listingIDs)
 	if err != nil {
 		return nil, pkgerrors.InternalErr(err)
 	}
@@ -135,7 +136,7 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 		meta[fc.ListingID] = assetMeta{assetType: dto.AssetTypeFutures}
 	}
 
-	forexPairs, err := s.forexRepo.FindByListingIDs(listingIDs)
+	forexPairs, err := s.forexRepo.FindByListingIDs(ctx, listingIDs)
 	if err != nil {
 		return nil, pkgerrors.InternalErr(err)
 	}
