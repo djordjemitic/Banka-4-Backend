@@ -2,8 +2,6 @@ package grpc
 
 import (
 	"context"
-	stderrors "errors"
-	"net/http"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -56,7 +54,7 @@ func (s *BankingService) CreatePayment(ctx context.Context, req *pb.CreatePaymen
 		Purpose:                req.Purpose,
 	})
 	if err != nil {
-		return nil, mapError(err)
+		return nil, errors.MapGrpcToHttpError(err)
 	}
 	return &pb.CreatePaymentResponse{
 		PaymentId:     uint64(payment.PaymentID),
@@ -65,27 +63,3 @@ func (s *BankingService) CreatePayment(ctx context.Context, req *pb.CreatePaymen
 	}, nil
 }
 
-func mapError(err error) error {
-	var appErr *errors.AppError
-	if !stderrors.As(err, &appErr) {
-		return status.Errorf(codes.Internal, "internal error: %v", err)
-	}
-	switch appErr.Code {
-	case http.StatusNotFound:
-		return status.Errorf(codes.NotFound, appErr.Message)
-	case http.StatusBadRequest:
-		return status.Errorf(codes.InvalidArgument, appErr.Message)
-	case http.StatusUnauthorized:
-		return status.Errorf(codes.Unauthenticated, appErr.Message)
-	case http.StatusForbidden:
-		return status.Errorf(codes.PermissionDenied, appErr.Message)
-	case http.StatusConflict:
-		return status.Errorf(codes.AlreadyExists, appErr.Message)
-	case http.StatusServiceUnavailable:
-		return status.Errorf(codes.Unavailable, appErr.Message)
-	case http.StatusTooManyRequests:
-		return status.Errorf(codes.ResourceExhausted, appErr.Message)
-	default:
-		return status.Errorf(codes.Internal, appErr.Message)
-	}
-}
