@@ -15,6 +15,9 @@ swagger-docs:
 	cd services/banking-service && swag init -g cmd/main.go -d ./,../../common
 	cd services/trading-service && swag init -g cmd/main.go -d ./,../../common
 
+proto:
+	protoc --proto_path=. --go_out=. --go-grpc_out=. common/proto/*.proto
+
 test:
 	go test ./common/... ./services/user-service/... ./services/banking-service/... ./services/trading-service/...
 
