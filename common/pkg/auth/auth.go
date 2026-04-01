@@ -151,7 +151,7 @@ func hasPermission(perm permission.Permission, permissions []permission.Permissi
 }
 
 func AnyOf(middlewares ...gin.HandlerFunc) gin.HandlerFunc {
-		return func(c *gin.Context) {
+	return func(c *gin.Context) {
   	  	for _, m := range middlewares {
       	    clone := *c
       	    clone.Writer = c.Writer
@@ -162,9 +162,9 @@ func AnyOf(middlewares ...gin.HandlerFunc) gin.HandlerFunc {
       	        // one middleware passed, let original context continue
       	        c.Next()
       	        return
-					}
-				}
-	      // none passed, abort
-				abortWithError(c, errors.ForbiddenErr("user does not satisfy auth requirements"))
+			}
+		}
+	    // none passed, abort
+		abortWithError(c, errors.ForbiddenErr("user does not satisfy auth requirements"))
     }
 }
