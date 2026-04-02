@@ -40,6 +40,10 @@ func (f *fakeLoanRepo) FindByClientID(_ context.Context, _ uint, _ bool) ([]mode
 	return f.requests, f.findErr
 }
 
+func (r *fakeLoanAccountRepo) FindByClientID(_ context.Context, _ uint) ([]model.Account, error) {
+	return nil, nil
+}
+
 func (f *fakeLoanRepo) FindByIDAndClientID(_ context.Context, _ uint, _ uint) (*model.LoanRequest, error) {
 	return f.request, f.findErr
 }

@@ -33,15 +33,14 @@ func NewTaxService(
 }
 
 // profit pozitivan, izračunava 15% poreza i upisuje u bazu.
-func (s *TaxService) RecordTax(ctx context.Context, accountNumber string, profit float64) error {
+func (s *TaxService) RecordTax(ctx context.Context, accountNumber string, employeeID *uint, profit float64) error {
 	if profit <= 0 {
 		return nil
 	}
 
 	taxAmount := profit * taxRate
 
-	err := s.taxRepo.AddTaxOwed(ctx, accountNumber, taxAmount)
-	if err != nil {
+	if err := s.taxRepo.AddTaxOwed(ctx, accountNumber, employeeID, taxAmount); err != nil {
 		return errors.InternalErr(err)
 	}
 
@@ -73,6 +72,7 @@ func (s *TaxService) CollectTaxes(ctx context.Context) error {
 
 		collection := &model.TaxCollection{
 			AccountNumber:     tax.AccountNumber,
+			EmployeeID:        tax.EmployeeID, // carry over from accumulated
 			TaxOwedRSD:        amountToCollect,
 			Status:            status,
 			FailureReason:     failureReason,
@@ -117,4 +117,40 @@ func (s *TaxService) GetTaxCollections(ctx context.Context, accountNumber string
 		return nil, errors.InternalErr(err)
 	}
 	return collections, nil
+}
+
+func (s *TaxService) GetEmployeeTotalTax(ctx context.Context, employeeID uint) (float64, error) {
+	taxes, err := s.taxRepo.FindAccumulatedTaxByEmployeeID(ctx, employeeID)
+	if err != nil {
+		return 0, errors.InternalErr(err)
+	}
+
+	total := 0.0
+	for _, t := range taxes {
+		total += t.TaxOwedRSD
+	}
+	return total, nil
+}
+
+func (s *TaxService) GetClientTotalTax(ctx context.Context, clientID uint64) (float64, error) {
+	accountsResp, err := s.bankingClient.GetAccountsByClientID(ctx, clientID)
+	if err != nil {
+		return 0, errors.InternalErr(err)
+	}
+
+	accountNumbers := make([]string, 0, len(accountsResp.Accounts))
+	for _, acc := range accountsResp.Accounts {
+		accountNumbers = append(accountNumbers, acc.AccountNumber)
+	}
+
+	taxes, err := s.taxRepo.FindAccumulatedTaxByClientAccountNumbers(ctx, accountNumbers)
+	if err != nil {
+		return 0, errors.InternalErr(err)
+	}
+
+	total := 0.0
+	for _, t := range taxes {
+		total += t.TaxOwedRSD
+	}
+	return total, nil
 }

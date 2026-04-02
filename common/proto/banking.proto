@@ -7,6 +7,7 @@ option go_package = "common/pkg/pb;pb";
 service BankingService {
   rpc GetAccountByNumber(GetAccountByNumberRequest) returns (GetAccountByNumberResponse);
   rpc CreatePayment(CreatePaymentRequest) returns (CreatePaymentResponse);
+  rpc GetAccountsByClientID(GetAccountsByClientIDRequest) returns (GetAccountsByClientIDResponse);
 }
 
 message GetAccountByNumberRequest {
@@ -36,3 +37,17 @@ message CreatePaymentResponse {
   uint64 transaction_id  = 2;
   string status          = 3;
 }
+
+message GetAccountsByClientIDRequest {
+  uint64 client_id = 1;
+}
+
+message GetAccountsByClientIDResponse {
+  repeated AccountInfo accounts = 1;
+}
+
+message AccountInfo {
+  string account_number = 1;
+  string currency_code = 2;
+}
+

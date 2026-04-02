@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	BankingService_GetAccountByNumber_FullMethodName = "/banking.v1.BankingService/GetAccountByNumber"
-	BankingService_CreatePayment_FullMethodName      = "/banking.v1.BankingService/CreatePayment"
+	BankingService_GetAccountByNumber_FullMethodName    = "/banking.v1.BankingService/GetAccountByNumber"
+	BankingService_CreatePayment_FullMethodName         = "/banking.v1.BankingService/CreatePayment"
+	BankingService_GetAccountsByClientID_FullMethodName = "/banking.v1.BankingService/GetAccountsByClientID"
 )
 
 // BankingServiceClient is the client API for BankingService service.
@@ -29,6 +30,7 @@ const (
 type BankingServiceClient interface {
 	GetAccountByNumber(ctx context.Context, in *GetAccountByNumberRequest, opts ...grpc.CallOption) (*GetAccountByNumberResponse, error)
 	CreatePayment(ctx context.Context, in *CreatePaymentRequest, opts ...grpc.CallOption) (*CreatePaymentResponse, error)
+	GetAccountsByClientID(ctx context.Context, in *GetAccountsByClientIDRequest, opts ...grpc.CallOption) (*GetAccountsByClientIDResponse, error)
 }
 
 type bankingServiceClient struct {
@@ -59,12 +61,23 @@ func (c *bankingServiceClient) CreatePayment(ctx context.Context, in *CreatePaym
 	return out, nil
 }
 
+func (c *bankingServiceClient) GetAccountsByClientID(ctx context.Context, in *GetAccountsByClientIDRequest, opts ...grpc.CallOption) (*GetAccountsByClientIDResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAccountsByClientIDResponse)
+	err := c.cc.Invoke(ctx, BankingService_GetAccountsByClientID_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BankingServiceServer is the server API for BankingService service.
 // All implementations must embed UnimplementedBankingServiceServer
 // for forward compatibility.
 type BankingServiceServer interface {
 	GetAccountByNumber(context.Context, *GetAccountByNumberRequest) (*GetAccountByNumberResponse, error)
 	CreatePayment(context.Context, *CreatePaymentRequest) (*CreatePaymentResponse, error)
+	GetAccountsByClientID(context.Context, *GetAccountsByClientIDRequest) (*GetAccountsByClientIDResponse, error)
 	mustEmbedUnimplementedBankingServiceServer()
 }
 
@@ -80,6 +93,9 @@ func (UnimplementedBankingServiceServer) GetAccountByNumber(context.Context, *Ge
 }
 func (UnimplementedBankingServiceServer) CreatePayment(context.Context, *CreatePaymentRequest) (*CreatePaymentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreatePayment not implemented")
+}
+func (UnimplementedBankingServiceServer) GetAccountsByClientID(context.Context, *GetAccountsByClientIDRequest) (*GetAccountsByClientIDResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAccountsByClientID not implemented")
 }
 func (UnimplementedBankingServiceServer) mustEmbedUnimplementedBankingServiceServer() {}
 func (UnimplementedBankingServiceServer) testEmbeddedByValue()                        {}
@@ -138,6 +154,24 @@ func _BankingService_CreatePayment_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BankingService_GetAccountsByClientID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAccountsByClientIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BankingServiceServer).GetAccountsByClientID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BankingService_GetAccountsByClientID_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BankingServiceServer).GetAccountsByClientID(ctx, req.(*GetAccountsByClientIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BankingService_ServiceDesc is the grpc.ServiceDesc for BankingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -152,6 +186,10 @@ var BankingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreatePayment",
 			Handler:    _BankingService_CreatePayment_Handler,
+		},
+		{
+			MethodName: "GetAccountsByClientID",
+			Handler:    _BankingService_GetAccountsByClientID_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

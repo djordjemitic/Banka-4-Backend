@@ -62,3 +62,20 @@ func (s *BankingService) CreatePaymentWithoutVerification(ctx context.Context, r
 		Status:        string(payment.Transaction.Status),
 	}, nil
 }
+
+func (s *BankingService) GetAccountsByClientID(ctx context.Context, req *pb.GetAccountsByClientIDRequest) (*pb.GetAccountsByClientIDResponse, error) {
+	accounts, err := s.accountRepo.FindByClientID(ctx, uint(req.ClientId))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to fetch accounts: %v", err)
+	}
+
+	pbAccounts := make([]*pb.AccountInfo, 0, len(accounts))
+	for _, acc := range accounts {
+		pbAccounts = append(pbAccounts, &pb.AccountInfo{
+			AccountNumber: acc.AccountNumber,
+			CurrencyCode:  string(acc.Currency.Code),
+		})
+	}
+
+	return &pb.GetAccountsByClientIDResponse{Accounts: pbAccounts}, nil
+}

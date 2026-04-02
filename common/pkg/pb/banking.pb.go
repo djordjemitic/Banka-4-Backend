@@ -293,6 +293,146 @@ func (x *CreatePaymentResponse) GetStatus() string {
 	return ""
 }
 
+type GetAccountsByClientIDRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      uint64                 `protobuf:"varint,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAccountsByClientIDRequest) Reset() {
+	*x = GetAccountsByClientIDRequest{}
+	mi := &file_banking_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAccountsByClientIDRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAccountsByClientIDRequest) ProtoMessage() {}
+
+func (x *GetAccountsByClientIDRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_banking_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAccountsByClientIDRequest.ProtoReflect.Descriptor instead.
+func (*GetAccountsByClientIDRequest) Descriptor() ([]byte, []int) {
+	return file_banking_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetAccountsByClientIDRequest) GetClientId() uint64 {
+	if x != nil {
+		return x.ClientId
+	}
+	return 0
+}
+
+type GetAccountsByClientIDResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Accounts      []*AccountInfo         `protobuf:"bytes,1,rep,name=accounts,proto3" json:"accounts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAccountsByClientIDResponse) Reset() {
+	*x = GetAccountsByClientIDResponse{}
+	mi := &file_banking_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAccountsByClientIDResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAccountsByClientIDResponse) ProtoMessage() {}
+
+func (x *GetAccountsByClientIDResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_banking_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAccountsByClientIDResponse.ProtoReflect.Descriptor instead.
+func (*GetAccountsByClientIDResponse) Descriptor() ([]byte, []int) {
+	return file_banking_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetAccountsByClientIDResponse) GetAccounts() []*AccountInfo {
+	if x != nil {
+		return x.Accounts
+	}
+	return nil
+}
+
+type AccountInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccountNumber string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
+	CurrencyCode  string                 `protobuf:"bytes,2,opt,name=currency_code,json=currencyCode,proto3" json:"currency_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AccountInfo) Reset() {
+	*x = AccountInfo{}
+	mi := &file_banking_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccountInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccountInfo) ProtoMessage() {}
+
+func (x *AccountInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_banking_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccountInfo.ProtoReflect.Descriptor instead.
+func (*AccountInfo) Descriptor() ([]byte, []int) {
+	return file_banking_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *AccountInfo) GetAccountNumber() string {
+	if x != nil {
+		return x.AccountNumber
+	}
+	return ""
+}
+
+func (x *AccountInfo) GetCurrencyCode() string {
+	if x != nil {
+		return x.CurrencyCode
+	}
+	return ""
+}
+
 var File_banking_proto protoreflect.FileDescriptor
 
 const file_banking_proto_rawDesc = "" +
@@ -319,10 +459,18 @@ const file_banking_proto_rawDesc = "" +
 	"\n" +
 	"payment_id\x18\x01 \x01(\x04R\tpaymentId\x12%\n" +
 	"\x0etransaction_id\x18\x02 \x01(\x04R\rtransactionId\x12\x16\n" +
-	"\x06status\x18\x03 \x01(\tR\x06status2\xcb\x01\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\";\n" +
+	"\x1cGetAccountsByClientIDRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\x04R\bclientId\"T\n" +
+	"\x1dGetAccountsByClientIDResponse\x123\n" +
+	"\baccounts\x18\x01 \x03(\v2\x17.banking.v1.AccountInfoR\baccounts\"Y\n" +
+	"\vAccountInfo\x12%\n" +
+	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12#\n" +
+	"\rcurrency_code\x18\x02 \x01(\tR\fcurrencyCode2\xb9\x02\n" +
 	"\x0eBankingService\x12c\n" +
 	"\x12GetAccountByNumber\x12%.banking.v1.GetAccountByNumberRequest\x1a&.banking.v1.GetAccountByNumberResponse\x12T\n" +
-	"\rCreatePayment\x12 .banking.v1.CreatePaymentRequest\x1a!.banking.v1.CreatePaymentResponseB\x12Z\x10common/pkg/pb;pbb\x06proto3"
+	"\rCreatePayment\x12 .banking.v1.CreatePaymentRequest\x1a!.banking.v1.CreatePaymentResponse\x12l\n" +
+	"\x15GetAccountsByClientID\x12(.banking.v1.GetAccountsByClientIDRequest\x1a).banking.v1.GetAccountsByClientIDResponseB\x12Z\x10common/pkg/pb;pbb\x06proto3"
 
 var (
 	file_banking_proto_rawDescOnce sync.Once
@@ -336,23 +484,29 @@ func file_banking_proto_rawDescGZIP() []byte {
 	return file_banking_proto_rawDescData
 }
 
-var file_banking_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_banking_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_banking_proto_goTypes = []any{
-	(*GetAccountByNumberRequest)(nil),  // 0: banking.v1.GetAccountByNumberRequest
-	(*GetAccountByNumberResponse)(nil), // 1: banking.v1.GetAccountByNumberResponse
-	(*CreatePaymentRequest)(nil),       // 2: banking.v1.CreatePaymentRequest
-	(*CreatePaymentResponse)(nil),      // 3: banking.v1.CreatePaymentResponse
+	(*GetAccountByNumberRequest)(nil),     // 0: banking.v1.GetAccountByNumberRequest
+	(*GetAccountByNumberResponse)(nil),    // 1: banking.v1.GetAccountByNumberResponse
+	(*CreatePaymentRequest)(nil),          // 2: banking.v1.CreatePaymentRequest
+	(*CreatePaymentResponse)(nil),         // 3: banking.v1.CreatePaymentResponse
+	(*GetAccountsByClientIDRequest)(nil),  // 4: banking.v1.GetAccountsByClientIDRequest
+	(*GetAccountsByClientIDResponse)(nil), // 5: banking.v1.GetAccountsByClientIDResponse
+	(*AccountInfo)(nil),                   // 6: banking.v1.AccountInfo
 }
 var file_banking_proto_depIdxs = []int32{
-	0, // 0: banking.v1.BankingService.GetAccountByNumber:input_type -> banking.v1.GetAccountByNumberRequest
-	2, // 1: banking.v1.BankingService.CreatePayment:input_type -> banking.v1.CreatePaymentRequest
-	1, // 2: banking.v1.BankingService.GetAccountByNumber:output_type -> banking.v1.GetAccountByNumberResponse
-	3, // 3: banking.v1.BankingService.CreatePayment:output_type -> banking.v1.CreatePaymentResponse
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	6, // 0: banking.v1.GetAccountsByClientIDResponse.accounts:type_name -> banking.v1.AccountInfo
+	0, // 1: banking.v1.BankingService.GetAccountByNumber:input_type -> banking.v1.GetAccountByNumberRequest
+	2, // 2: banking.v1.BankingService.CreatePayment:input_type -> banking.v1.CreatePaymentRequest
+	4, // 3: banking.v1.BankingService.GetAccountsByClientID:input_type -> banking.v1.GetAccountsByClientIDRequest
+	1, // 4: banking.v1.BankingService.GetAccountByNumber:output_type -> banking.v1.GetAccountByNumberResponse
+	3, // 5: banking.v1.BankingService.CreatePayment:output_type -> banking.v1.CreatePaymentResponse
+	5, // 6: banking.v1.BankingService.GetAccountsByClientID:output_type -> banking.v1.GetAccountsByClientIDResponse
+	4, // [4:7] is the sub-list for method output_type
+	1, // [1:4] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_banking_proto_init() }
@@ -366,7 +520,7 @@ func file_banking_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_banking_proto_rawDesc), len(file_banking_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

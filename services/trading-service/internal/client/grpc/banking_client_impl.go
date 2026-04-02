@@ -35,3 +35,13 @@ func (c *BankingServiceClient) CreatePaymentWithoutVerification(ctx context.Cont
 	}
 	return resp, nil
 }
+
+func (c *BankingServiceClient) GetAccountsByClientID(ctx context.Context, clientID uint64) (*pb.GetAccountsByClientIDResponse, error) {
+	resp, err := c.stub.GetAccountsByClientID(ctx, &pb.GetAccountsByClientIDRequest{
+		ClientId: clientID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("banking client GetAccountsByClientID: %w", err)
+	}
+	return resp, nil
+}

@@ -55,10 +55,10 @@ func (r *taxRepositoryImpl) FindAllPositiveAccumulatedTax(ctx context.Context) (
 	return taxes, nil
 }
 
-func (r *taxRepositoryImpl) AddTaxOwed(ctx context.Context, accountNumber string, amount float64) error {
+func (r *taxRepositoryImpl) AddTaxOwed(ctx context.Context, accountNumber string, employeeID *uint, amount float64) error {
 	result := r.db.WithContext(ctx).
 		Model(&model.AccumulatedTax{}).
-		Where("account_number = ?", accountNumber).
+		Where("account_number = ? AND (employee_id = ? OR (employee_id IS NULL AND ? IS NULL))", accountNumber, employeeID, employeeID).
 		Updates(map[string]interface{}{
 			"tax_owed_rsd":    gorm.Expr("tax_owed_rsd + ?", amount),
 			"last_updated_at": time.Now(),
@@ -71,6 +71,7 @@ func (r *taxRepositoryImpl) AddTaxOwed(ctx context.Context, accountNumber string
 	if result.RowsAffected == 0 {
 		tax := model.AccumulatedTax{
 			AccountNumber: accountNumber,
+			EmployeeID:    employeeID,
 			TaxOwedRSD:    amount,
 			LastUpdatedAt: time.Now(),
 		}
@@ -98,9 +99,9 @@ func (r *taxRepositoryImpl) RecordCollectionResult(ctx context.Context, collecti
 		}
 		if clearTax {
 			if err := tx.Model(&model.AccumulatedTax{}).
-				Where("account_number = ?", collection.AccountNumber).
+				Where("account_number = ? AND (employee_id = ? OR (employee_id IS NULL AND ? IS NULL))",
+					collection.AccountNumber, collection.EmployeeID, collection.EmployeeID).
 				Updates(map[string]interface{}{
-					// Subtract only what was collected, not zero out
 					"tax_owed_rsd":    gorm.Expr("GREATEST(tax_owed_rsd - ?, 0)", clearedAmount),
 					"last_cleared_at": clearedAt,
 					"last_updated_at": clearedAt,
@@ -142,4 +143,28 @@ func (r *taxRepositoryImpl) FindLatestTaxCollection(ctx context.Context, account
 		return nil, nil
 	}
 	return &collection, result.Error
+}
+func (r *taxRepositoryImpl) FindAccumulatedTaxByEmployeeID(ctx context.Context, employeeID uint) ([]model.AccumulatedTax, error) {
+	var taxes []model.AccumulatedTax
+	err := r.db.WithContext(ctx).
+		Where("employee_id = ?", employeeID).
+		Find(&taxes).Error
+	if err != nil {
+		return nil, err
+	}
+	return taxes, nil
+}
+
+func (r *taxRepositoryImpl) FindAccumulatedTaxByClientAccountNumbers(ctx context.Context, accountNumbers []string) ([]model.AccumulatedTax, error) {
+	if len(accountNumbers) == 0 {
+		return nil, nil
+	}
+	var taxes []model.AccumulatedTax
+	err := r.db.WithContext(ctx).
+		Where("account_number IN ? AND employee_id IS NULL", accountNumbers).
+		Find(&taxes).Error
+	if err != nil {
+		return nil, err
+	}
+	return taxes, nil
 }
