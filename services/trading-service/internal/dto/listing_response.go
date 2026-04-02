@@ -78,7 +78,6 @@ type PaginatedOptionResponse struct {
 	PageSize int              `json:"pageSize"`
 }
 
-
 type DailyPriceResponse struct {
 	Date   time.Time `json:"date"`
 	Price  float64   `json:"price"`
@@ -92,4 +91,19 @@ type StockDetailedResponse struct {
 	StockResponse
 	History []DailyPriceResponse `json:"history"`
 	Options []OptionResponse     `json:"options"`
+}
+
+type FutureDetailedResponse struct {
+	FuturesResponse
+	History []DailyPriceResponse `json:"history"`
+}
+
+type ForexDetailedResponse struct {
+	ForexResponse
+	History []DailyPriceResponse `json:"history"`
+}
+
+type OptionDetailedResponse struct {
+	OptionResponse
+	History []DailyPriceResponse `json:"history"`
 }

@@ -349,3 +349,104 @@ func TestGetForex_TickerFormat(t *testing.T) {
 		}
 	}
 }
+
+// --- Detailed Views Tests ---
+
+func TestGetFutureDetails_Success(t *testing.T) {
+	db := setupListingTestDB(t)
+	seedListingTestData(t, db)
+
+	// Nalazimo ID od futures ugovora koji je ubačen u seed-u (CLJ26)
+	var futureListing model.Listing
+	db.Where("ticker = ?", "CLJ26").First(&futureListing)
+
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	result, err := svc.GetFutureDetails(context.Background(), futureListing.ListingID)
+	if err != nil {
+		t.Fatalf("GetFutureDetails failed: %v", err)
+	}
+
+	if result.Ticker != "CLJ26" {
+		t.Errorf("expected ticker CLJ26, got %s", result.Ticker)
+	}
+	if result.ContractSize != 1000 {
+		t.Errorf("expected contract size 1000, got %f", result.ContractSize)
+	}
+	if result.ContractUnit != "barrels" {
+		t.Errorf("expected contract unit barrels, got %s", result.ContractUnit)
+	}
+}
+
+func TestGetForexDetails_Success(t *testing.T) {
+	db := setupListingTestDB(t)
+	seedListingTestData(t, db)
+
+	// Nalazimo ID od EUR/USD koji je ubačen u seed-u
+	var forexListing model.Listing
+	db.Where("ticker = ?", "EUR/USD").First(&forexListing)
+
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	result, err := svc.GetForexDetails(context.Background(), forexListing.ListingID)
+	if err != nil {
+		t.Fatalf("GetForexDetails failed: %v", err)
+	}
+
+	if result.Ticker != "EUR/USD" {
+		t.Errorf("expected ticker EUR/USD, got %s", result.Ticker)
+	}
+	if result.Price != 1.08 {
+		t.Errorf("expected price 1.08, got %f", result.Price)
+	}
+}
+
+func TestGetOptionDetails_Success(t *testing.T) {
+	db := setupListingTestDB(t)
+	seedListingTestData(t, db)
+
+	// Moramo da ubacimo mock opciju jer je nema u globalnom seed-u
+	optionListing := model.Listing{
+		Ticker: "AAPL220404P00180000", Name: "AAPL Put", ExchangeMIC: "XNAS",
+		Price: 3.20, Ask: 3.30, ListingType: model.ListingTypeOption, LastRefresh: time.Now(),
+	}
+	db.Create(&optionListing)
+
+	option := model.Option{
+		ListingID: optionListing.ListingID, StockID: 1, OptionType: model.OptionTypePut,
+		StrikePrice: 180.0, ContractSize: 100, SettlementDate: time.Now().AddDate(0, 1, 0),
+	}
+	db.Create(&option)
+
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	result, err := svc.GetOptionDetails(context.Background(), optionListing.ListingID)
+	if err != nil {
+		t.Fatalf("GetOptionDetails failed: %v", err)
+	}
+
+	if result.Ticker != "AAPL220404P00180000" {
+		t.Errorf("expected ticker AAPL220404P00180000, got %s", result.Ticker)
+	}
+	if result.OptionType != string(model.OptionTypePut) {
+		t.Errorf("expected option type PUT, got %s", result.OptionType)
+	}
+	if result.Strike != 180.0 {
+		t.Errorf("expected strike 180.0, got %f", result.Strike)
+	}
+}

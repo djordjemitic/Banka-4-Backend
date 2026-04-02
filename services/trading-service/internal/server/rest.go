@@ -69,20 +69,42 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, exchangeHa
 			exchanges.GET("", exchangeHandler.GetAll)
 			exchanges.PATCH("/:micCode/toggle", exchangeHandler.ToggleTradingEnabled)
 		}
-    
+
 		listings := api.Group("/listings")
 		listings.Use(auth.Middleware(verifier, permProvider))
 		{
+			// Stocks
 			stocks := listings.Group("/stocks")
 			stocks.Use(auth.AnyOf(middleware.RequireSupervisor(userClient), middleware.RequireAgent(userClient), auth.RequireIdentityType(auth.IdentityClient)))
 			{
 				stocks.GET("", listingHandler.GetStocks)
 				stocks.GET("/:listingId", listingHandler.GetStockDetails)
 			}
-			listings.GET("/futures", auth.AnyOf(middleware.RequireSupervisor(userClient), middleware.RequireAgent(userClient), auth.RequireIdentityType(auth.IdentityClient)),  listingHandler.GetFutures)
-			listings.GET("/forex", auth.AnyOf(middleware.RequireSupervisor(userClient), middleware.RequireAgent(userClient)), listingHandler.GetForex)
-			listings.GET("/options", auth.AnyOf(middleware.RequireSupervisor(userClient), middleware.RequireAgent(userClient)), listingHandler.GetOptions)
-    }
+
+			// Futures
+			futures := listings.Group("/futures")
+			futures.Use(auth.AnyOf(middleware.RequireSupervisor(userClient), middleware.RequireAgent(userClient), auth.RequireIdentityType(auth.IdentityClient)))
+			{
+				futures.GET("", listingHandler.GetFutures)
+				futures.GET("/:listingId", listingHandler.GetFutureDetails)
+			}
+
+			// Forex
+			forex := listings.Group("/forex")
+			forex.Use(auth.AnyOf(middleware.RequireSupervisor(userClient), middleware.RequireAgent(userClient)))
+			{
+				forex.GET("", listingHandler.GetForex)
+				forex.GET("/:listingId", listingHandler.GetForexDetails)
+			}
+
+			// Options
+			options := listings.Group("/options")
+			options.Use(auth.AnyOf(middleware.RequireSupervisor(userClient), middleware.RequireAgent(userClient)))
+			{
+				options.GET("", listingHandler.GetOptions)
+				options.GET("/:listingId", listingHandler.GetOptionDetails)
+			}
+		}
 
 		authMw := auth.Middleware(verifier, permProvider)
 
@@ -93,6 +115,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, exchangeHa
 		actuary := api.Group("/actuary")
 		actuary.Use(authMw, auth.RequireIdentityType(auth.IdentityEmployee))
 		actuary.GET("/:actId/assets", portfolioHandler.GetActuaryPortfolio)
+
 		orders := api.Group("/orders")
 		orders.Use(auth.Middleware(verifier, permProvider))
 		{

@@ -90,6 +90,16 @@ func toFilter(q dto.ListingQuery) (repository.ListingFilter, error) {
 	return f, nil
 }
 
+func mapHistory(infos []model.ListingDailyPriceInfo) []dto.DailyPriceResponse {
+	history := make([]dto.DailyPriceResponse, len(infos))
+	for i, h := range infos {
+		history[i] = dto.DailyPriceResponse{
+			Date: h.Date, Price: h.Price, Ask: h.Ask, Bid: h.Bid, Change: h.Change, Volume: h.Volume,
+		}
+	}
+	return history
+}
+
 // --- Stocks ---
 
 func (s *ListingService) GetStocks(ctx context.Context, q dto.ListingQuery) (*dto.PaginatedStockResponse, error) {
@@ -118,7 +128,7 @@ func (s *ListingService) GetStocks(ctx context.Context, q dto.ListingQuery) (*dt
 		}
 	}
 
-	return &dto.PaginatedStockResponse {
+	return &dto.PaginatedStockResponse{
 		Data:     data,
 		Total:    total,
 		Page:     q.Page,
@@ -227,6 +237,28 @@ func (s *ListingService) GetFutures(ctx context.Context, q dto.ListingQuery) (*d
 	}, nil
 }
 
+func (s *ListingService) GetFutureDetails(ctx context.Context, listingID uint) (*dto.FutureDetailedResponse, error) {
+	l, err := s.listingRepo.FindByID(ctx, listingID)
+	if err != nil || l == nil || l.ListingType != model.ListingTypeFuture {
+		return nil, commonErrors.NotFoundErr("future not found")
+	}
+
+	fc, err := s.futuresRepo.FindByListingIDs(ctx, []uint{listingID})
+	if err != nil || len(fc) == 0 {
+		return nil, commonErrors.NotFoundErr("contract details not found")
+	}
+
+	return &dto.FutureDetailedResponse{
+		FuturesResponse: dto.FuturesResponse{
+			BaseListingResponse: baseResponse(*l, latestDaily(l.DailyPriceInfos)),
+			SettlementDate:      fc[0].SettlementDate,
+			ContractSize:        fc[0].ContractSize,
+			ContractUnit:        fc[0].ContractUnit,
+		},
+		History: mapHistory(l.DailyPriceInfos),
+	}, nil
+}
+
 // --- Forex ---
 
 func (s *ListingService) GetForex(ctx context.Context, q dto.ListingQuery) (*dto.PaginatedForexResponse, error) {
@@ -251,11 +283,30 @@ func (s *ListingService) GetForex(ctx context.Context, q dto.ListingQuery) (*dto
 		}
 	}
 
-	return &dto.PaginatedForexResponse {
+	return &dto.PaginatedForexResponse{
 		Data:     data,
 		Total:    total,
 		Page:     q.Page,
 		PageSize: q.PageSize,
+	}, nil
+}
+
+func (s *ListingService) GetForexDetails(ctx context.Context, listingID uint) (*dto.ForexDetailedResponse, error) {
+	l, err := s.listingRepo.FindByID(ctx, listingID)
+	if err != nil || l == nil || l.ListingType != model.ListingTypeForexPair {
+		return nil, commonErrors.NotFoundErr("forex not found")
+	}
+
+	// Kreiramo bazični odgovor pošto nam za Forex grafik treba samo istorija
+	return &dto.ForexDetailedResponse{
+		ForexResponse: dto.ForexResponse{
+			Ticker:            l.Ticker,
+			Price:             l.Price,
+			Ask:               l.Ask,
+			MaintenanceMargin: l.MaintenanceMargin,
+			InitialMarginCost: l.MaintenanceMargin * 1.1,
+		},
+		History: mapHistory(l.DailyPriceInfos),
 	}, nil
 }
 
@@ -300,11 +351,35 @@ func (s *ListingService) GetOptions(ctx context.Context, q dto.ListingQuery) (*d
 		}
 	}
 
-	result := &dto.PaginatedOptionResponse {
+	result := &dto.PaginatedOptionResponse{
 		Data:     data,
 		Total:    total,
 		Page:     q.Page,
 		PageSize: q.PageSize,
 	}
 	return result, nil
+}
+
+func (s *ListingService) GetOptionDetails(ctx context.Context, listingID uint) (*dto.OptionDetailedResponse, error) {
+	l, err := s.listingRepo.FindByID(ctx, listingID)
+	if err != nil || l == nil || l.ListingType != model.ListingTypeOption {
+		return nil, commonErrors.NotFoundErr("option not found")
+	}
+
+	opt, err := s.optionRepo.FindByListingIDs(ctx, []uint{listingID})
+	if err != nil || len(opt) == 0 {
+		return nil, commonErrors.NotFoundErr("option details not found")
+	}
+
+	return &dto.OptionDetailedResponse{
+		OptionResponse: dto.OptionResponse{
+			BaseListingResponse: baseResponse(*l, latestDaily(l.DailyPriceInfos)),
+			Strike:              opt[0].StrikePrice,
+			OptionType:          string(opt[0].OptionType),
+			SettlementDate:      opt[0].SettlementDate,
+			ImpliedVolatility:   opt[0].ImpliedVolatility,
+			OpenInterest:        opt[0].OpenInterest,
+		},
+		History: mapHistory(l.DailyPriceInfos),
+	}, nil
 }

@@ -188,3 +188,87 @@ func (h *ListingHandler) GetOptions(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, result)
 }
+
+// GetFutureDetails godoc
+// @Summary Get futures details
+// @Description Retrieves detailed information for a specific futures contract by its listing ID.
+// @Tags listings
+// @Accept json
+// @Produce json
+// @Param listingId path int true "Listing ID"
+// @Success 200 {object} dto.FutureDetailedResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Failure 500 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/listings/futures/{listingId} [get]
+func (h *ListingHandler) GetFutureDetails(c *gin.Context) {
+	listingId, err := strconv.ParseUint(c.Param("listingId"), 10, 64)
+	if err != nil {
+		c.Error(errors.BadRequestErr("invalid listing id"))
+		return
+	}
+
+	result, err := h.svc.GetFutureDetails(c.Request.Context(), uint(listingId))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+// GetForexDetails godoc
+// @Summary Get forex details
+// @Description Retrieves detailed information for a specific forex pair by its listing ID.
+// @Tags listings
+// @Accept json
+// @Produce json
+// @Param listingId path int true "Listing ID"
+// @Success 200 {object} dto.ForexDetailedResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Failure 500 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/listings/forex/{listingId} [get]
+func (h *ListingHandler) GetForexDetails(c *gin.Context) {
+	listingId, err := strconv.ParseUint(c.Param("listingId"), 10, 64)
+	if err != nil {
+		c.Error(errors.BadRequestErr("invalid listing id"))
+		return
+	}
+
+	result, err := h.svc.GetForexDetails(c.Request.Context(), uint(listingId))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+// GetOptionDetails godoc
+// @Summary Get option details
+// @Description Retrieves detailed information for a specific option by its listing ID.
+// @Tags listings
+// @Accept json
+// @Produce json
+// @Param listingId path int true "Listing ID"
+// @Success 200 {object} dto.OptionDetailedResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Failure 500 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/listings/options/{listingId} [get]
+func (h *ListingHandler) GetOptionDetails(c *gin.Context) {
+	listingId, err := strconv.ParseUint(c.Param("listingId"), 10, 64)
+	if err != nil {
+		c.Error(errors.BadRequestErr("invalid listing id"))
+		return
+	}
+
+	result, err := h.svc.GetOptionDetails(c.Request.Context(), uint(listingId))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
