@@ -42,7 +42,7 @@ func NewStockService(
 }
 
 func (s *StockService) Initialize(ctx context.Context) {
-	count, err := s.listingRepo.Count(ctx)
+	count, err := s.stockRepo.Count(ctx)
 	if err != nil {
 		log.Printf("[seed] failed to count listings: %v", err)
 		return
@@ -162,6 +162,7 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 			LastRefresh: time.Now(),
 			Price:       quote.CurrentPrice,
 			Ask:         quote.High,
+			ListingType: model.ListingTypeStock,
 		}
 		if err := s.listingRepo.Upsert(ctx, listing); err != nil {
 			continue
@@ -276,6 +277,7 @@ func (s *StockService) seedGeneratedOption(
 		// TODO: replace with actual price calculation from black scholes
 		Price:       strike,
 		Ask:         strike,
+		ListingType: model.ListingTypeOption,
 	}
 	if err := s.listingRepo.Upsert(ctx, listing); err != nil {
 		return

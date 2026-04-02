@@ -1,9 +1,21 @@
 definitions:
+  dto.AssetType:
+    enum:
+    - STOCK
+    - FUTURES
+    - OPTION
+    - FOREX
+    type: string
+    x-enum-varnames:
+    - AssetTypeStock
+    - AssetTypeFutures
+    - AssetTypeOption
+    - AssetTypeForex
   dto.CreateOrderRequest:
     properties:
-      accountNumber:
+      account_number:
         type: string
-      allOrNone:
+      all_or_none:
         type: boolean
       direction:
         allOf:
@@ -11,13 +23,13 @@ definitions:
         enum:
         - BUY
         - SELL
-      limitValue:
+      limit_value:
         type: number
-      listingId:
+      listing_id:
         type: integer
       margin:
         type: boolean
-      orderType:
+      order_type:
         allOf:
         - $ref: '#/definitions/model.OrderType'
         enum:
@@ -28,84 +40,370 @@ definitions:
       quantity:
         minimum: 1
         type: integer
-      stopValue:
+      stop_value:
         type: number
     required:
-    - accountNumber
+    - account_number
     - direction
-    - listingId
-    - orderType
+    - listing_id
+    - order_type
     - quantity
+    type: object
+  dto.DailyPriceResponse:
+    properties:
+      ask:
+        type: number
+      bid:
+        type: number
+      change:
+        type: number
+      date:
+        type: string
+      price:
+        type: number
+      volume:
+        type: integer
     type: object
   dto.ExchangeResponse:
     properties:
       acronym:
         type: string
-      closeTime:
+      close_time:
         type: string
       currency:
         type: string
-      exchangeId:
+      exchange_id:
         type: integer
-      micCode:
+      mic_code:
         type: string
       name:
         type: string
-      openTime:
+      open_time:
         type: string
       polity:
         type: string
-      timeZone:
+      time_zone:
         type: integer
-      tradingEnabled:
+      trading_enabled:
         type: boolean
     type: object
-  dto.OrderResponse:
+  dto.ForexResponse:
     properties:
-      accountNumber:
-        type: string
-      afterHours:
-        type: boolean
-      allOrNone:
-        type: boolean
-      approvedBy:
-        type: integer
-      contractSize:
+      ask:
         type: number
-      createdAt:
+      base:
         type: string
-      direction:
-        $ref: '#/definitions/model.OrderDirection'
-      isDone:
-        type: boolean
-      limitValue:
+      bid:
         type: number
-      listingId:
+      change:
+        type: number
+      forexPairId:
         type: integer
-      listingName:
+      initialMarginCost:
+        type: number
+      maintenanceMargin:
+        type: number
+      price:
+        type: number
+      quote:
         type: string
-      margin:
-        type: boolean
-      orderId:
+      ticker:
+        type: string
+      volume:
         type: integer
-      orderType:
-        $ref: '#/definitions/model.OrderType'
-      pricePerUnit:
+    type: object
+  dto.FuturesResponse:
+    properties:
+      ask:
         type: number
-      quantity:
+      bid:
+        type: number
+      change:
+        type: number
+      contract_size:
+        type: number
+      contract_unit:
+        type: string
+      exchange:
+        type: string
+      initial_margin_cost:
+        type: number
+      listing_id:
         type: integer
-      remainingPortions:
+      maintenance_margin:
+        type: number
+      name:
+        type: string
+      price:
+        type: number
+      settlement_date:
+        type: string
+      ticker:
+        type: string
+      volume:
         type: integer
-      status:
-        $ref: '#/definitions/model.OrderStatus'
-      stopValue:
+    type: object
+  dto.ListOrdersResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.OrderSummaryResponse'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  dto.OptionResponse:
+    properties:
+      ask:
+        type: number
+      bid:
+        type: number
+      change:
+        type: number
+      exchange:
+        type: string
+      implied_volatility:
+        type: number
+      initial_margin_cost:
+        type: number
+      listing_id:
+        type: integer
+      maintenance_margin:
+        type: number
+      name:
+        type: string
+      open_interest:
+        type: integer
+      option_type:
+        type: string
+      price:
+        type: number
+      settlement_date:
+        type: string
+      strike:
         type: number
       ticker:
         type: string
-      updatedAt:
-        type: string
-      userId:
+      volume:
         type: integer
+    type: object
+  dto.OrderResponse:
+    properties:
+      account_number:
+        type: string
+      after_hours:
+        type: boolean
+      all_or_none:
+        type: boolean
+      approved_by:
+        type: integer
+      contract_size:
+        type: number
+      created_at:
+        type: string
+      direction:
+        $ref: '#/definitions/model.OrderDirection'
+      is_done:
+        type: boolean
+      limit_value:
+        type: number
+      listing_id:
+        type: integer
+      listing_name:
+        type: string
+      margin:
+        type: boolean
+      order_id:
+        type: integer
+      order_type:
+        $ref: '#/definitions/model.OrderType'
+      price_per_unit:
+        type: number
+      quantity:
+        type: integer
+      remaining_portions:
+        type: integer
+      status:
+        $ref: '#/definitions/model.OrderStatus'
+      stop_value:
+        type: number
+      ticker:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  dto.OrderSummaryResponse:
+    properties:
+      contract_size:
+        type: number
+      direction:
+        $ref: '#/definitions/model.OrderDirection'
+      listing_name:
+        type: string
+      order_id:
+        type: integer
+      price_per_unit:
+        type: number
+      quantity:
+        type: integer
+      remaining_portions:
+        type: integer
+      status:
+        $ref: '#/definitions/model.OrderStatus'
+      user_id:
+        type: integer
+    type: object
+  dto.PaginatedForexResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.ForexResponse'
+        type: array
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+    type: object
+  dto.PaginatedFuturesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.FuturesResponse'
+        type: array
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+    type: object
+  dto.PaginatedOptionResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.OptionResponse'
+        type: array
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+    type: object
+  dto.PaginatedStockResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.StockResponse'
+        type: array
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+    type: object
+  dto.PortfolioAssetResponse:
+    properties:
+      amount:
+        type: number
+      lastModified:
+        type: string
+      outstandingShares:
+        type: number
+      pricePerUnit:
+        type: number
+      profit:
+        type: number
+      taxAmount:
+        type: number
+      ticker:
+        type: string
+      type:
+        $ref: '#/definitions/dto.AssetType'
+    type: object
+  dto.StockDetailedResponse:
+    properties:
+      ask:
+        type: number
+      bid:
+        type: number
+      change:
+        type: number
+      dividend_yield:
+        type: number
+      exchange:
+        type: string
+      history:
+        items:
+          $ref: '#/definitions/dto.DailyPriceResponse'
+        type: array
+      initial_margin_cost:
+        type: number
+      listing_id:
+        type: integer
+      maintenance_margin:
+        type: number
+      name:
+        type: string
+      options:
+        items:
+          $ref: '#/definitions/dto.OptionResponse'
+        type: array
+      outstanding_shares:
+        type: number
+      price:
+        type: number
+      ticker:
+        type: string
+      volume:
+        type: integer
+    type: object
+  dto.StockResponse:
+    properties:
+      ask:
+        type: number
+      bid:
+        type: number
+      change:
+        type: number
+      dividend_yield:
+        type: number
+      exchange:
+        type: string
+      initial_margin_cost:
+        type: number
+      listing_id:
+        type: integer
+      maintenance_margin:
+        type: number
+      name:
+        type: string
+      outstanding_shares:
+        type: number
+      price:
+        type: number
+      ticker:
+        type: string
+      volume:
+        type: integer
+    type: object
+  errors.AppError:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
     type: object
   model.OrderDirection:
     enum:
@@ -144,6 +442,88 @@ info:
   title: Trading Service API
   version: "1.0"
 paths:
+  /api/actuary/{actId}/assets:
+    get:
+      description: Returns all currently held asset positions for an actuary (employee
+        agent/supervisor), aggregated from all orders. Only approved orders with fills
+        are counted. Includes stocks, futures, options, and forex pairs.
+      parameters:
+      - description: Actuary ID
+        in: path
+        name: actId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.PortfolioAssetResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get portfolio for an actuary/agent
+      tags:
+      - portfolio
+  /api/client/{clientId}/assets:
+    get:
+      description: Returns all currently held asset positions for a client, aggregated
+        from all orders. Only approved orders with fills are counted. Includes stocks,
+        futures, options, and forex pairs.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.PortfolioAssetResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get portfolio for a client
+      tags:
+      - portfolio
   /api/exchange:
     get:
       description: Returns a paginated list of all stock exchanges
@@ -226,6 +606,309 @@ paths:
       summary: Health check
       tags:
       - health
+  /api/listings/forex:
+    get:
+      parameters:
+      - description: Search by base/quote
+        in: query
+        name: search
+        type: string
+      - description: Min rate
+        in: query
+        name: price_min
+        type: number
+      - description: Max rate
+        in: query
+        name: price_max
+        type: number
+      - description: asc|desc
+        in: query
+        name: sort_dir
+        type: string
+      - description: Page
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PaginatedForexResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: List forex pairs
+      tags:
+      - listings
+  /api/listings/futures:
+    get:
+      parameters:
+      - description: Search by ticker or name
+        in: query
+        name: search
+        type: string
+      - description: Exchange MIC prefix
+        in: query
+        name: exchange
+        type: string
+      - description: Min price
+        in: query
+        name: price_min
+        type: number
+      - description: Max price
+        in: query
+        name: price_max
+        type: number
+      - description: Min ask
+        in: query
+        name: ask_min
+        type: number
+      - description: Max ask
+        in: query
+        name: ask_max
+        type: number
+      - description: Min bid
+        in: query
+        name: bid_min
+        type: number
+      - description: Max bid
+        in: query
+        name: bid_max
+        type: number
+      - description: Min volume
+        in: query
+        name: volume_min
+        type: integer
+      - description: Max volume
+        in: query
+        name: volume_max
+        type: integer
+      - description: Filter by settlement date (YYYY-MM-DD)
+        in: query
+        name: settlement_date
+        type: string
+      - description: price|volume|maintenance_margin
+        in: query
+        name: sort_by
+        type: string
+      - description: asc|desc
+        in: query
+        name: sort_dir
+        type: string
+      - description: Page
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PaginatedFuturesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: List futures contracts
+      tags:
+      - listings
+  /api/listings/options:
+    get:
+      parameters:
+      - description: Search by ticker or name
+        in: query
+        name: search
+        type: string
+      - description: Exchange MIC prefix
+        in: query
+        name: exchange
+        type: string
+      - description: Min price
+        in: query
+        name: price_min
+        type: number
+      - description: Max price
+        in: query
+        name: price_max
+        type: number
+      - description: Min ask
+        in: query
+        name: ask_min
+        type: number
+      - description: Max ask
+        in: query
+        name: ask_max
+        type: number
+      - description: Min bid
+        in: query
+        name: bid_min
+        type: number
+      - description: Max bid
+        in: query
+        name: bid_max
+        type: number
+      - description: Min volume
+        in: query
+        name: volume_min
+        type: integer
+      - description: Max volume
+        in: query
+        name: volume_max
+        type: integer
+      - description: Filter by settlement date (YYYY-MM-DD)
+        in: query
+        name: settlement_date
+        type: string
+      - description: price|volume|maintenance_margin
+        in: query
+        name: sort_by
+        type: string
+      - description: asc|desc
+        in: query
+        name: sort_dir
+        type: string
+      - description: Page
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PaginatedOptionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: List options
+      tags:
+      - listings
+  /api/listings/stock/listingId:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves stock information for a specific listing by its ID.
+      parameters:
+      - description: Listing ID
+        in: path
+        name: listingId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.StockDetailedResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get stock details
+      tags:
+      - listings
+  /api/listings/stocks:
+    get:
+      parameters:
+      - description: Search by ticker or name
+        in: query
+        name: search
+        type: string
+      - description: Exchange MIC prefix
+        in: query
+        name: exchange
+        type: string
+      - description: Min price
+        in: query
+        name: price_min
+        type: number
+      - description: Max price
+        in: query
+        name: price_max
+        type: number
+      - description: Min ask
+        in: query
+        name: ask_min
+        type: number
+      - description: Max ask
+        in: query
+        name: ask_max
+        type: number
+      - description: Min bid
+        in: query
+        name: bid_min
+        type: number
+      - description: Max bid
+        in: query
+        name: bid_max
+        type: number
+      - description: Min volume
+        in: query
+        name: volume_min
+        type: integer
+      - description: Max volume
+        in: query
+        name: volume_max
+        type: integer
+      - description: price|volume|maintenance_margin
+        in: query
+        name: sort_by
+        type: string
+      - description: asc|desc
+        in: query
+        name: sort_dir
+        type: string
+      - description: Page
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PaginatedStockResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: List stocks
+      tags:
+      - listings
   /api/orders:
     get:
       description: Returns a paginated and filtered list of orders. Clients see only
@@ -257,20 +940,15 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/dto.ListOrdersResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/errors.AppError'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/errors.AppError'
       summary: Get all orders
       tags:
       - orders
@@ -295,15 +973,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/errors.AppError'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/errors.AppError'
       summary: Create a new order
       tags:
       - orders
@@ -326,15 +1000,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/errors.AppError'
         "404":
           description: Not Found
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/errors.AppError'
       summary: Approve a pending order
       tags:
       - orders
@@ -357,15 +1027,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/errors.AppError'
         "404":
           description: Not Found
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/errors.AppError'
       summary: Cancel an order
       tags:
       - orders
@@ -388,15 +1054,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/errors.AppError'
         "404":
           description: Not Found
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/errors.AppError'
       summary: Decline a pending order
       tags:
       - orders
