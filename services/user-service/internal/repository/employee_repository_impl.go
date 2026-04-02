@@ -66,7 +66,7 @@ func (r *employeeRepository) FindByIdentityID(ctx context.Context, identityID ui
 
 func (r *employeeRepository) Update(ctx context.Context, employee *model.Employee) error {
 	currentDB := db.DBFromContext(ctx, r.db)
-  return currentDB.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+  return currentDB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Omit("Permissions", "ActuaryInfo").Save(employee).Error; err != nil {
 			return err
 		}
