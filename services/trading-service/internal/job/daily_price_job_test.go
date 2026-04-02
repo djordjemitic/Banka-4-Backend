@@ -61,6 +61,10 @@ func (m *mockListingRepo) FindByType(ctx context.Context, typ model.ListingType)
 	return nil, nil
 }
 
+func (m *mockListingRepo) FindLatestDailyPriceInfo(ctx context.Context, listingID uint) (*model.ListingDailyPriceInfo, error) {
+	return nil, nil
+}
+
 func TestDailyPriceJob_Run(t *testing.T) {
 	tests := []struct {
 		name                     string
