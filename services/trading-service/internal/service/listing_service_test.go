@@ -28,6 +28,7 @@ func setupListingTestDB(t *testing.T) *gorm.DB {
 		&model.FuturesContract{},
 		&model.ForexPair{},
 		&model.ListingDailyPriceInfo{},
+		&model.Option{},
 	); err != nil {
 		t.Fatal(err)
 	}
