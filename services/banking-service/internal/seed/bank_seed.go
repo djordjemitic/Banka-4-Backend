@@ -32,6 +32,7 @@ var workCodes = []model.WorkCode{
 	{Code: "70.2", Description: "Management consulting"},
 	{Code: "85.1", Description: "Primary education"},
 	{Code: "86.1", Description: "Hospital activities"},
+	{Code: "84.1", Description: "Government and public administration"},
 }
 
 var companies = []struct {
@@ -65,6 +66,14 @@ var companies = []struct {
 		Address:            "Bulevar Oslobodjenja 20, Novi Sad, Srbija",
 		OwnerID:            1,
 		WorkCodeCode:       "85.1",
+	},
+	{
+		Name:               "Republika Srbija",
+		RegistrationNumber: "00000001",
+		TaxNumber:          "100000001",
+		Address:            "Nemanjina 11, Beograd, Srbija",
+		OwnerID:            1,
+		WorkCodeCode:       "84.1",
 	},
 }
 
@@ -281,6 +290,19 @@ var accounts = []struct {
 		Balance:       1_000_000_000.00,
 		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
 		CurrencyCode:  model.AUD,
+		AccountType:   model.AccountTypeBank,
+		AccountKind:   model.AccountKindInternal,
+		DailyLimit:    1e12,
+		MonthlyLimit:  1e13,
+	},
+	{
+		AccountNumber: "444000000000000008",
+		Name:          "Republika Srbija Tax Account",
+		ClientID:      2,
+		EmployeeID:    3,
+		Balance:       0,
+		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
+		CurrencyCode:  model.RSD,
 		AccountType:   model.AccountTypeBank,
 		AccountKind:   model.AccountKindInternal,
 		DailyLimit:    1e12,

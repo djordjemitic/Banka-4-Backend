@@ -5,6 +5,7 @@ import (
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/handler"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
+	clientgrpc "github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client/grpc"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/config"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/permission"
@@ -51,6 +52,9 @@ func main() {
 			func(conn *client.BankingConn) pb.BankingServiceClient {
 				return pb.NewBankingServiceClient(conn.ClientConn)
 			},
+			func(conn *client.BankingConn) client.BankingClient {
+				return clientgrpc.NewBankingServiceClient(conn)
+			},
 			func(c pb.PermissionServiceClient) auth.PermissionProvider {
 				return permission.NewGrpcPermissionProvider(c)
 			},
@@ -73,6 +77,9 @@ func main() {
 			repository.NewOrderRepository,
 			service.NewOrderService,
 			handler.NewOrderHandler,
+			repository.NewTaxRepository,
+			service.NewTaxService,
+			service.NewTaxScheduler,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
@@ -114,6 +121,18 @@ func main() {
 			return seed.SeedAccumulatedTax(db)
 		}),
 		fx.Invoke(server.NewServer),
+		fx.Invoke(func(lc fx.Lifecycle, scheduler *service.TaxScheduler) {
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					scheduler.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					scheduler.Stop()
+					return nil
+				},
+			})
+		}),
 		fx.Invoke(func(lifecycle fx.Lifecycle, forexService *service.ForexService) {
 			lifecycle.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
