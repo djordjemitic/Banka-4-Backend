@@ -1267,50 +1267,6 @@ const docTemplate = `{
                 "change": {
                     "type": "number"
                 },
-                "forexPairId": {
-                    "type": "integer"
-                },
-                "history": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.DailyPriceResponse"
-                    }
-                },
-                "initialMarginCost": {
-                    "type": "number"
-                },
-                "maintenanceMargin": {
-                    "type": "number"
-                },
-                "price": {
-                    "type": "number"
-                },
-                "quote": {
-                    "type": "string"
-                },
-                "ticker": {
-                    "type": "string"
-                },
-                "volume": {
-                    "type": "integer"
-                }
-            }
-        },
-        "dto.ForexResponse": {
-            "type": "object",
-            "properties": {
-                "ask": {
-                    "type": "number"
-                },
-                "base": {
-                    "type": "string"
-                },
-                "bid": {
-                    "type": "number"
-                },
-                "change": {
-                    "type": "number"
-                },
                 "exchange": {
                     "type": "string"
                 },
