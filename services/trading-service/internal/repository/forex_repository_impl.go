@@ -59,6 +59,7 @@ func (r *forexRepository) FindAll(ctx context.Context, filter ListingFilter) ([]
 	err := q.Order("rate " + dir).
 		Limit(filter.PageSize).
 		Offset((filter.Page - 1) * filter.PageSize).
+		Preload("Listing").
 		Find(&pairs).Error
 
 	return pairs, count, err

@@ -30,17 +30,11 @@ type FuturesResponse struct {
 }
 
 type ForexResponse struct {
-	ForexPairID       uint    `json:"forexPairId"`
-	Ticker            string  `json:"ticker"`
-	Base              string  `json:"base"`
-	Quote             string  `json:"quote"`
-	Price             float64 `json:"price"`
-	Ask               float64 `json:"ask"`
-	Bid               float64 `json:"bid"`
-	Change            float64 `json:"change"`
-	Volume            uint    `json:"volume"`
-	MaintenanceMargin float64 `json:"maintenanceMargin"`
-	InitialMarginCost float64 `json:"initialMarginCost"`
+	BaseListingResponse
+	Base                 string    `json:"base"`
+	Quote                string    `json:"quote"`
+	ProviderUpdatedAt    time.Time `json:"provider_updated_at"`
+	ProviderNextUpdateAt time.Time `json:"provider_next_update_at"`
 }
 
 type OptionResponse struct {

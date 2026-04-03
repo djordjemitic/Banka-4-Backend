@@ -274,12 +274,19 @@ func (s *ListingService) GetForex(ctx context.Context, q dto.ListingQuery) (*dto
 
 	data := make([]dto.ForexResponse, len(pairs))
 	for i, p := range pairs {
+		daily := latestDaily(p.Listing.DailyPriceInfos)
+		base := baseResponse(p.Listing, daily)
+		base.Ticker = p.Base + "/" + p.Quote
+		base.Name = p.Base + "/" + p.Quote
+		base.Exchange = "FOREX"
+		base.Price = p.Rate
+
 		data[i] = dto.ForexResponse{
-			ForexPairID: p.ForexPairID,
-			Ticker:      p.Base + "/" + p.Quote,
-			Base:        p.Base,
-			Quote:       p.Quote,
-			Price:       p.Rate,
+			BaseListingResponse:  base,
+			Base:                 p.Base,
+			Quote:                p.Quote,
+			ProviderUpdatedAt:    p.ProviderUpdatedAt,
+			ProviderNextUpdateAt: p.ProviderNextUpdateAt,
 		}
 	}
 
@@ -297,14 +304,19 @@ func (s *ListingService) GetForexDetails(ctx context.Context, listingID uint) (*
 		return nil, commonErrors.NotFoundErr("forex not found")
 	}
 
-	// Kreiramo bazični odgovor pošto nam za Forex grafik treba samo istorija
+	pairs, err := s.forexRepo.FindByListingIDs(ctx, []uint{listingID})
+	if err != nil || len(pairs) == 0 {
+		return nil, commonErrors.NotFoundErr("forex pair details not found")
+	}
+	p := pairs[0]
+
 	return &dto.ForexDetailedResponse{
 		ForexResponse: dto.ForexResponse{
-			Ticker:            l.Ticker,
-			Price:             l.Price,
-			Ask:               l.Ask,
-			MaintenanceMargin: l.MaintenanceMargin,
-			InitialMarginCost: l.MaintenanceMargin * 1.1,
+			BaseListingResponse:  baseResponse(*l, latestDaily(l.DailyPriceInfos)),
+			Base:                 p.Base,
+			Quote:                p.Quote,
+			ProviderUpdatedAt:    p.ProviderUpdatedAt,
+			ProviderNextUpdateAt: p.ProviderNextUpdateAt,
 		},
 		History: mapHistory(l.DailyPriceInfos),
 	}, nil

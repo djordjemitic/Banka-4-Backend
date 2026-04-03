@@ -1267,8 +1267,8 @@ const docTemplate = `{
                 "change": {
                     "type": "number"
                 },
-                "forexPairId": {
-                    "type": "integer"
+                "exchange": {
+                    "type": "string"
                 },
                 "history": {
                     "type": "array",
@@ -1276,14 +1276,26 @@ const docTemplate = `{
                         "$ref": "#/definitions/dto.DailyPriceResponse"
                     }
                 },
-                "initialMarginCost": {
+                "initial_margin_cost": {
                     "type": "number"
                 },
-                "maintenanceMargin": {
+                "listing_id": {
+                    "type": "integer"
+                },
+                "maintenance_margin": {
                     "type": "number"
+                },
+                "name": {
+                    "type": "string"
                 },
                 "price": {
                     "type": "number"
+                },
+                "provider_next_update_at": {
+                    "type": "string"
+                },
+                "provider_updated_at": {
+                    "type": "string"
                 },
                 "quote": {
                     "type": "string"
@@ -1311,17 +1323,29 @@ const docTemplate = `{
                 "change": {
                     "type": "number"
                 },
-                "forexPairId": {
+                "exchange": {
+                    "type": "string"
+                },
+                "initial_margin_cost": {
+                    "type": "number"
+                },
+                "listing_id": {
                     "type": "integer"
                 },
-                "initialMarginCost": {
+                "maintenance_margin": {
                     "type": "number"
                 },
-                "maintenanceMargin": {
-                    "type": "number"
+                "name": {
+                    "type": "string"
                 },
                 "price": {
                     "type": "number"
+                },
+                "provider_next_update_at": {
+                    "type": "string"
+                },
+                "provider_updated_at": {
+                    "type": "string"
                 },
                 "quote": {
                     "type": "string"

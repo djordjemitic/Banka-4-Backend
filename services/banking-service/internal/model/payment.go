@@ -1,8 +1,8 @@
 package model
 
 type Payment struct {
-	PaymentID       uint   `gorm:"primaryKey"`
-	TransactionID   uint   `gorm:"not null"`
+	PaymentID       uint `gorm:"primaryKey"`
+	TransactionID   uint `gorm:"not null"`
 	RecipientName   string
 	ReferenceNumber string
 	PaymentCode     string
@@ -11,4 +11,3 @@ type Payment struct {
 
 	Transaction Transaction
 }
-
