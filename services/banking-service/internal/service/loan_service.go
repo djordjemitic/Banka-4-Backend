@@ -154,11 +154,12 @@ func (s *LoanService) GetLoanDetails(ctx context.Context, clientID uint, loanID 
 	}
 
 	var installments []dto.Installment
-	for i := 1; i <= loan.RepaymentPeriod; i++ {
+	for _, inst := range loan.Installments {
 		installments = append(installments, dto.Installment{
-			Number: i,
-			Amount: loan.MonthlyInstallment,
-			Status: "UPCOMING",
+			Number:  inst.InstallmentNumber,
+			Amount:  inst.Amount,
+			Status:  string(inst.Status),
+			DueDate: inst.DueDate,
 		})
 	}
 
