@@ -5,31 +5,88 @@ package user.v1;
 option go_package = "common/pkg/pb;pb";
 
 service UserService {
-  rpc GetClientById(GetClientByIdRequest) returns (GetClientByIdResponse);
-  rpc GetEmployeeById(GetEmployeeByIdRequest) returns (GetEmployeeByIdResponse);
+  rpc GetClientById(GetClientByIdRequest)       returns (GetClientByIdResponse);
+  rpc GetEmployeeById(GetEmployeeByIdRequest)   returns (GetEmployeeByIdResponse);
+  rpc GetAllClients(GetAllClientsRequest)       returns (GetAllClientsResponse);
+  rpc GetAllActuaries(GetAllActuariesRequest)   returns (GetAllActuariesResponse);
 }
 
-message GetClientByIdRequest {
-  uint64 id = 1;
-}
 
+message GetClientByIdRequest  { uint64 id = 1; }
 message GetClientByIdResponse {
   uint64 id        = 1;
   string email     = 2;
   string full_name = 3;
 }
 
-message GetEmployeeByIdRequest {
-  uint64 id = 1;
+message GetEmployeeByIdRequest  { uint64 id = 1; }
+message GetEmployeeByIdResponse {
+  uint64 id            = 1;
+  string email         = 2;
+  string full_name     = 3;
+  bool   is_supervisor = 4;
+  bool   is_agent      = 5;
+  bool   need_approval = 6;
+  double order_limit   = 7;
+  double used_limit    = 8;
 }
 
-message GetEmployeeByIdResponse {
-  uint64 id             = 1;
-  string email          = 2;
-  string full_name      = 3;
-  bool   is_supervisor  = 4;
-  bool   is_agent       = 5;
-  bool   need_approval  = 6;
-  double order_limit    = 7;
-  double used_limit     = 8;
+
+
+message GetAllClientsRequest {
+  int32  page       = 1;
+  int32  page_size  = 2;
+  string first_name = 3;
+  string last_name  = 4;
+}
+
+message ClientResponse {
+  uint64 id           = 1;
+  string first_name   = 2;
+  string last_name    = 3;
+  string email        = 4;
+  string phone_number = 5;
+  string address      = 6;
+  string username     = 7;
+  bool   active       = 8;
+}
+
+message GetAllClientsResponse {
+  repeated ClientResponse clients     = 1;
+  int64                   total       = 2;
+  int32                   page        = 3;
+  int32                   page_size   = 4;
+  int32                   total_pages = 5;
+}
+
+
+message GetAllActuariesRequest {
+  int32  page         = 1;
+  int32  page_size    = 2;
+  string first_name   = 3;
+  string last_name    = 4;
+}
+
+message ActuaryResponse {
+  uint64 id            = 1;
+  string first_name    = 2;
+  string last_name     = 3;
+  string email         = 4;
+  string username      = 5;
+  string department    = 6;
+  uint64 position_id   = 7;
+  bool   active        = 8;
+  bool   is_agent      = 9;
+  bool   is_supervisor = 10;
+  double order_limit   = 11;
+  double used_limit    = 12;
+  bool   need_approval = 13;
+}
+
+message GetAllActuariesResponse {
+  repeated ActuaryResponse actuaries  = 1;
+  int64                    total      = 2;
+  int32                    page       = 3;
+  int32                    page_size  = 4;
+  int32                    total_pages = 5;
 }
