@@ -32,6 +32,7 @@ var workCodes = []model.WorkCode{
 	{Code: "70.2", Description: "Management consulting"},
 	{Code: "85.1", Description: "Primary education"},
 	{Code: "86.1", Description: "Hospital activities"},
+	{Code: "84.1", Description: "Government and public administration"},
 }
 
 var companies = []struct {
@@ -43,11 +44,19 @@ var companies = []struct {
 	WorkCodeCode       string
 }{
 	{
+		Name:               "Banka 4",
+		RegistrationNumber: "44444444",
+		TaxNumber:          "444444444",
+		Address:            "Bankarska ulica bb, Beograd, Srbija",
+		OwnerID:            1,
+		WorkCodeCode:       "64.1",
+	},
+	{
 		Name:               "Tech DOO",
 		RegistrationNumber: "12345678",
 		TaxNumber:          "123456789",
 		Address:            "Trg Republike 5, Beograd, Srbija",
-		OwnerID:            1,
+		OwnerID:            2,
 		WorkCodeCode:       "62.0",
 	},
 	{
@@ -55,7 +64,7 @@ var companies = []struct {
 		RegistrationNumber: "87654321",
 		TaxNumber:          "987654321",
 		Address:            "Knez Mihailova 10, Beograd, Srbija",
-		OwnerID:            1,
+		OwnerID:            2,
 		WorkCodeCode:       "64.1",
 	},
 	{
@@ -63,8 +72,16 @@ var companies = []struct {
 		RegistrationNumber: "11223344",
 		TaxNumber:          "112233445",
 		Address:            "Bulevar Oslobodjenja 20, Novi Sad, Srbija",
-		OwnerID:            1,
+		OwnerID:            2,
 		WorkCodeCode:       "85.1",
+	},
+	{
+		Name:               "Republika Srbija",
+		RegistrationNumber: "00000001",
+		TaxNumber:          "100000001",
+		Address:            "Nemanjina 11, Beograd, Srbija",
+		OwnerID:            1,
+		WorkCodeCode:       "84.1",
 	},
 }
 
@@ -75,7 +92,7 @@ var loanTypes = []model.LoanType{
 		BankMargin:         1.75,
 		BaseInterestRate:   5.0,
 		MinRepaymentPeriod: 6,
-		MaxRepaymentPeriod: 60,
+		MaxRepaymentPeriod: 84,
 	},
 	{
 		Name:               "Mortgage Loan",
@@ -111,6 +128,10 @@ var loanTypes = []model.LoanType{
 	},
 }
 
+func getUintPointer(value uint) *uint {
+	return &value
+}
+
 var accounts = []struct {
 	AccountNumber string
 	Name          string
@@ -130,7 +151,7 @@ var accounts = []struct {
 	{
 		AccountNumber: "444000112345678911",
 		Name:          "Standard Personal Account",
-		ClientID:      7,
+		ClientID:      5,
 		EmployeeID:    1,
 		Balance:       50000.00,
 		ExpiresAt:     time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -159,7 +180,7 @@ var accounts = []struct {
 	{
 		AccountNumber: "444000112345678921",
 		Name:          "Personal EUR Account",
-		ClientID:      1,
+		ClientID:      2,
 		EmployeeID:    1,
 		Balance:       2000.00,
 		ExpiresAt:     time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -185,7 +206,8 @@ var accounts = []struct {
 	{
 		AccountNumber: "444000000000000000",
 		Name:          "Bank RSD Account",
-		ClientID:      2,
+		ClientID:      1,
+		CompanyID:     getUintPointer(1),
 		EmployeeID:    3,
 		Balance:       1_000_000_000.00,
 		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -198,7 +220,8 @@ var accounts = []struct {
 	{
 		AccountNumber: "444000000000000001",
 		Name:          "Bank EUR Account",
-		ClientID:      2,
+		ClientID:      1,
+		CompanyID:     getUintPointer(1),
 		EmployeeID:    3,
 		Balance:       1_000_000_000.00,
 		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -211,7 +234,8 @@ var accounts = []struct {
 	{
 		AccountNumber: "444000000000000002",
 		Name:          "Bank USD Account",
-		ClientID:      2,
+		ClientID:      1,
+		CompanyID:     getUintPointer(1),
 		EmployeeID:    3,
 		Balance:       1_000_000_000.00,
 		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -224,7 +248,8 @@ var accounts = []struct {
 	{
 		AccountNumber: "444000000000000003",
 		Name:          "Bank CHF Account",
-		ClientID:      2,
+		ClientID:      1,
+		CompanyID:     getUintPointer(1),
 		EmployeeID:    3,
 		Balance:       1_000_000_000.00,
 		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -237,7 +262,8 @@ var accounts = []struct {
 	{
 		AccountNumber: "444000000000000004",
 		Name:          "Bank GBP Account",
-		ClientID:      2,
+		ClientID:      1,
+		CompanyID:     getUintPointer(1),
 		EmployeeID:    3,
 		Balance:       1_000_000_000.00,
 		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -250,7 +276,8 @@ var accounts = []struct {
 	{
 		AccountNumber: "444000000000000005",
 		Name:          "Bank JPY Account",
-		ClientID:      2,
+		ClientID:      1,
+		CompanyID:     getUintPointer(1),
 		EmployeeID:    3,
 		Balance:       1_000_000_000.00,
 		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -263,7 +290,8 @@ var accounts = []struct {
 	{
 		AccountNumber: "444000000000000006",
 		Name:          "Bank CAD Account",
-		ClientID:      2,
+		ClientID:      1,
+		CompanyID:     getUintPointer(1),
 		EmployeeID:    3,
 		Balance:       1_000_000_000.00,
 		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -276,11 +304,26 @@ var accounts = []struct {
 	{
 		AccountNumber: "444000000000000007",
 		Name:          "Bank AUD Account",
-		ClientID:      2,
+		ClientID:      1,
+		CompanyID:     getUintPointer(1),
 		EmployeeID:    3,
 		Balance:       1_000_000_000.00,
 		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
 		CurrencyCode:  model.AUD,
+		AccountType:   model.AccountTypeBank,
+		AccountKind:   model.AccountKindInternal,
+		DailyLimit:    1e12,
+		MonthlyLimit:  1e13,
+	},
+	{
+		AccountNumber: "444000000000000008",
+		Name:          "Republika Srbija Tax Account",
+		ClientID:      6,
+		CompanyID:     getUintPointer(5),
+		EmployeeID:    3,
+		Balance:       0,
+		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
+		CurrencyCode:  model.RSD,
 		AccountType:   model.AccountTypeBank,
 		AccountKind:   model.AccountKindInternal,
 		DailyLimit:    1e12,
@@ -313,7 +356,7 @@ var seedTransactions = []struct {
 	{
 		Transaction: model.Transaction{
 			PayerAccountNumber:     "444000112345678911",
-			RecipientAccountNumber: "444000223456789011",
+			RecipientAccountNumber: "444000112345678922",
 			StartAmount:            12000.00,
 			StartCurrencyCode:      "RSD",
 			EndAmount:              12000.00,
@@ -349,7 +392,7 @@ var seedTransactions = []struct {
 	{
 		Transaction: model.Transaction{
 			PayerAccountNumber:     "444000112345678911",
-			RecipientAccountNumber: "444000334567890111",
+			RecipientAccountNumber: "444000112345678922",
 			StartAmount:            8500.00,
 			StartCurrencyCode:      "RSD",
 			EndAmount:              8500.00,
@@ -367,7 +410,7 @@ var seedTransactions = []struct {
 	{
 		Transaction: model.Transaction{
 			PayerAccountNumber:     "444000112345678911",
-			RecipientAccountNumber: "444000445678901211",
+			RecipientAccountNumber: "444000112345678921",
 			StartAmount:            50000.00,
 			StartCurrencyCode:      "RSD",
 			EndAmount:              50000.00,

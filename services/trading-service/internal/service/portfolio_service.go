@@ -107,7 +107,7 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 	}
 	meta := make(map[uint]assetMeta)
 
-	// ⚡️ Updated repo calls to include ctx
+	// Updated repo calls to include ctx
 	stocks, err := s.stockRepo.FindByListingIDs(ctx, listingIDs)
 	if err != nil {
 		return nil, pkgerrors.InternalErr(err)
@@ -162,7 +162,7 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 
 		const taxRate = 0.15
 		// TODO: calculate TaxAmount
-		
+
 		profit := (agg.currentPrice - avgBuyPrice) * agg.netAmount
 
 		tax := 0.0

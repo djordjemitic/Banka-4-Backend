@@ -44,6 +44,10 @@ func (f *fakeCardServiceAccountRepo) UpdateBalance(ctx context.Context, account 
 	return nil
 }
 
+func (r *fakeCardServiceAccountRepo) FindByClientID(_ context.Context, _ uint) ([]model.Account, error) {
+	return nil, nil
+}
+
 func (f *fakeCardServiceAccountRepo) FindAllByClientID(_ context.Context, _ uint) ([]model.Account, error) {
 	return f.accountArr, nil
 }
@@ -317,6 +321,7 @@ func newCardServiceForTests(
 		cardRequestRepo:      cardRequestRepo,
 		userClient:           userClient,
 		mailer:               mailer,
+		txManager:            &fakeBankingTxManager{},
 	}
 }
 func TestRequestCardPersonalSuccess(t *testing.T) {

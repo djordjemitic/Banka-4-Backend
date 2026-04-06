@@ -2,19 +2,23 @@ package main
 
 import (
 	"context"
+	"log"
+	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/handler"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
+	clientgrpc "github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client/grpc"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/config"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/job"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/permission"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/repository"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/seed"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/server"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/service"
+	"go.uber.org/zap"
 
 	"go.uber.org/fx"
-	"google.golang.org/grpc"
 	"gorm.io/gorm"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
@@ -22,6 +26,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
+	"github.com/robfig/cron/v3"
 )
 
 // @title Trading Service API
@@ -42,15 +47,18 @@ func main() {
 				return jwt.NewJWTVerifier(cfg.JWTSecret)
 			},
 			client.NewUserServiceConnection,
-			func(conn *grpc.ClientConn) pb.PermissionServiceClient {
-				return pb.NewPermissionServiceClient(conn)
+			func(conn *client.UserConn) pb.PermissionServiceClient {
+				return pb.NewPermissionServiceClient(conn.ClientConn)
 			},
-			func(conn *grpc.ClientConn) pb.UserServiceClient {
-				return pb.NewUserServiceClient(conn)
+			func(conn *client.UserConn) client.UserServiceClient {
+				return clientgrpc.NewUserServiceClient(conn)
 			},
 			client.NewBankingServiceConnection,
 			func(conn *client.BankingConn) pb.BankingServiceClient {
 				return pb.NewBankingServiceClient(conn.ClientConn)
+			},
+			func(conn *client.BankingConn) client.BankingClient {
+				return clientgrpc.NewBankingServiceClient(conn)
 			},
 			func(c pb.PermissionServiceClient) auth.PermissionProvider {
 				return permission.NewGrpcPermissionProvider(c)
@@ -61,27 +69,43 @@ func main() {
 				return client.NewExchangeRateClient(cfg.ExchangeRateAPIKey)
 			},
 			service.NewForexService,
-
 			func(cfg *config.Configuration) *client.StockClient {
 				return client.NewStockClient(cfg.FinnhubAPIKey)
 			},
 			repository.NewListingRepository,
 			repository.NewStockRepository,
 			repository.NewOptionRepository,
+			job.NewDailyPriceJob,
 			service.NewStockService,
 			repository.NewExchangeRepository,
 			service.NewExchangeService,
 			handler.NewExchangeHandler,
+			service.NewListingService,
+			handler.NewListingHandler,
 			repository.NewOrderOwnershipRepository,
 			repository.NewFuturesContractRepository,
 			service.NewPortfolioService,
 			handler.NewPortfolioHandler,
 			repository.NewOrderRepository,
+			repository.NewOrderTransactionRepository,
 			service.NewOrderService,
 			handler.NewOrderHandler,
+			repository.NewTaxRepository,
+			service.NewTaxService,
+			handler.NewTaxHandler,
+			service.NewTaxScheduler,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
+		}),
+		fx.Invoke(func(db *gorm.DB) error {
+			return db.AutoMigrate(&model.Exchange{})
+		}),
+		fx.Invoke(func(db *gorm.DB) error {
+			return seed.RunExchangeSeed(db)
+		}),
+		fx.Invoke(func(db *gorm.DB) error {
+			return seed.NormalizeListingExchangeMICs(db)
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
 			return db.AutoMigrate(
@@ -89,11 +113,13 @@ func main() {
 				&model.Stock{},
 				&model.Option{},
 				&model.ListingDailyPriceInfo{},
-				&model.Exchange{},
 				&model.Order{},
 				&model.OrderOwnership{},
+				&model.OrderTransaction{},
 				&model.ForexPair{},
 				&model.FuturesContract{},
+				&model.AccumulatedTax{},
+				&model.TaxCollection{},
 			)
 		}),
 		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {
@@ -113,9 +139,21 @@ func main() {
 			return seed.SeedFuturesContracts(db)
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
-			return seed.RunExchangeSeed(db)
+			return seed.AccumulatedTax(db)
 		}),
 		fx.Invoke(server.NewServer),
+		fx.Invoke(func(lc fx.Lifecycle, scheduler *service.TaxScheduler) {
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					scheduler.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					scheduler.Stop()
+					return nil
+				},
+			})
+		}),
 		fx.Invoke(func(lifecycle fx.Lifecycle, forexService *service.ForexService) {
 			lifecycle.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
@@ -125,6 +163,41 @@ func main() {
 				},
 				OnStop: func(ctx context.Context) error {
 					forexService.Stop()
+					return nil
+				},
+			})
+		}),
+		fx.Invoke(func(lc fx.Lifecycle, dailyJob *job.DailyPriceJob) {
+			c := cron.New(cron.WithLocation(time.UTC))
+			_, err := c.AddFunc("0 0 * * *", func() {
+				ctx := context.Background()
+				if err := dailyJob.Run(ctx); err != nil {
+					logging.Error("Daily price job failed", zap.Error(err))
+				}
+			})
+			if err != nil {
+				log.Fatal("Failed to schedule daily price job", zap.Error(err))
+			}
+
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					c.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					c.Stop()
+					return nil
+				},
+			})
+		}),
+		fx.Invoke(func(lifecycle fx.Lifecycle, orderService *service.OrderService) {
+			lifecycle.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					orderService.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					orderService.Stop()
 					return nil
 				},
 			})

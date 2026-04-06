@@ -1,13 +1,12 @@
 package seed
 
 import (
+	_ "embed"
 	"encoding/csv"
 	"errors"
 	"log"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -15,17 +14,11 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 )
 
+//go:embed futures_with_dates.csv
+var futuresCSV string
+
 func SeedFuturesContracts(db *gorm.DB) error {
-	_, filename, _, _ := runtime.Caller(0)
-	csvPath := filepath.Join(filepath.Dir(filename), "futures_with_dates.csv")
-
-	f, err := os.Open(csvPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	reader := csv.NewReader(f)
+	reader := csv.NewReader(strings.NewReader(futuresCSV))
 	records, err := reader.ReadAll()
 	if err != nil {
 		return err
@@ -67,7 +60,7 @@ func SeedFuturesContracts(db *gorm.DB) error {
 			Listing: model.Listing{
 				Ticker:      row[0],
 				Name:        row[1],
-				ExchangeMIC: row[6],
+				ExchangeMIC: resolveExistingExchangeMIC(db, row[6]),
 				LastRefresh: time.Now(),
 				Price:       price * size,
 				Ask:         price * size,
@@ -75,10 +68,10 @@ func SeedFuturesContracts(db *gorm.DB) error {
 			},
 		}
 
-		var existing model.FuturesContract
-		err = db.Where("ticker = ?", contract.Listing.Ticker).First(&existing).Error
+		var existingListing model.Listing
+		err = db.Where("ticker = ?", contract.Listing.Ticker).First(&existingListing).Error
 		if err == nil {
-			continue // Skip if contract with that ticker already exists
+			continue
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
