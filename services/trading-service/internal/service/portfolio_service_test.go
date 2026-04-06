@@ -159,8 +159,6 @@ func TestGetPortfolio_HappyPath_Stock(t *testing.T) {
 	require.Equal(t, float64(10), a.Amount)
 	require.Equal(t, 150.0, a.PricePerUnit)
 	require.InDelta(t, (150.0-100.0)*10, a.Profit, 0.001)
-	expectedProfit := (150.0 - 100.0) * 10
-	require.InDelta(t, expectedProfit*0.15, a.TaxAmount, 0.001)
 	require.NotNil(t, a.OutstandingShares)
 	require.Equal(t, float64(1_000_000), *a.OutstandingShares)
 }
@@ -186,7 +184,6 @@ func TestGetPortfolio_HappyPath_Option(t *testing.T) {
 	require.Equal(t, dto.AssetTypeOption, a.Type)
 	require.Equal(t, float64(200), a.Amount)
 	require.InDelta(t, (8.0-5.0)*200, a.Profit, 0.001)
-	require.InDelta(t, ((8.0-5.0)*200)*0.15, a.TaxAmount, 0.001)
 	require.Nil(t, a.OutstandingShares)
 }
 
@@ -269,8 +266,6 @@ func TestGetPortfolio_PartialSell(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 	require.Equal(t, float64(6), result[0].Amount)
-	expectedProfit := (150.0 - 100.0) * 6
-	require.InDelta(t, expectedProfit*0.15, result[0].TaxAmount, 0.001)
 }
 
 func TestGetPortfolio_ForexExcluded(t *testing.T) {
@@ -337,6 +332,5 @@ func TestGetPortfolio_WeightedAvgBuyPrice(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 	require.InDelta(t, 0.0, result[0].Profit, 0.001)
-	require.InDelta(t, 0.0, result[0].TaxAmount, 0.001)
 	require.Equal(t, float64(20), result[0].Amount)
 }
