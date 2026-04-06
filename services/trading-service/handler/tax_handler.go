@@ -3,6 +3,7 @@ package handler
 import (
 	"math"
 	"net/http"
+	"strconv"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
@@ -135,21 +136,61 @@ func (h *TaxHandler) CollectTaxes(c *gin.Context) {
 
 	c.JSON(http.StatusOK, dto.CollectTaxesResponse{Message: "Tax collection completed"})
 }
-func (h *TaxHandler) GetMyTax(c *gin.Context) {
+
+// GetClientAccumulatedTax godoc
+// @Summary Get accumulated tax for a client
+// @Description Returns the total accumulated tax (paid + unpaid) for a specific client across all their accounts in RSD.
+// @Tags tax
+// @Produce json
+// @Param clientId path int true "Client ID"
+// @Success 200 {object} dto.TaxInfoResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/client/{clientId}/accumulated-tax [get]
+func (h *TaxHandler) GetClientAccumulatedTax(c *gin.Context) {
 	ctx := c.Request.Context()
-
-	userID := c.GetUint("userId")
-	userType := c.GetString("userType")
-
-	var total float64
-	var err error
-
-	if userType == "client" {
-		total, err = h.taxService.GetClientTotalTax(ctx, uint64(userID))
-	} else {
-		total, err = h.taxService.GetEmployeeTotalTax(ctx, userID)
+	clientIDStr := c.Param("clientId")
+	clientID, err := strconv.ParseUint(clientIDStr, 10, 64)
+	if err != nil {
+		_ = c.Error(errors.BadRequestErr("invalid clientId"))
+		return
 	}
 
+	total, err := h.taxService.GetClientTotalTax(ctx, clientID)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.TaxInfoResponse{
+		TotalTax: total,
+	})
+}
+
+// GetActuaryAccumulatedTax godoc
+// @Summary Get accumulated tax for an actuary
+// @Description Returns the total accumulated tax (paid + unpaid) for a specific actuary (employee) across all accounts in RSD.
+// @Tags tax
+// @Produce json
+// @Param actId path int true "Actuary ID"
+// @Success 200 {object} dto.TaxInfoResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/actuary/{actId}/accumulated-tax [get]
+func (h *TaxHandler) GetActuaryAccumulatedTax(c *gin.Context) {
+	ctx := c.Request.Context()
+	actIDStr := c.Param("actId")
+	actID, err := strconv.ParseUint(actIDStr, 10, 64)
+	if err != nil {
+		_ = c.Error(errors.BadRequestErr("invalid actId"))
+		return
+	}
+
+	total, err := h.taxService.GetEmployeeTotalTax(ctx, uint(actID))
 	if err != nil {
 		_ = c.Error(err)
 		return
