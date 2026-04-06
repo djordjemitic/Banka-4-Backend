@@ -7,5 +7,5 @@ import (
 )
 
 type FuturesContractRepository interface {
-	FindByListingIDs(ctx context.Context, listingIDs []uint) ([]model.FuturesContract, error)
+	FindByAssetIDs(ctx context.Context, assetIDs []uint) ([]model.FuturesContract, error)
 }

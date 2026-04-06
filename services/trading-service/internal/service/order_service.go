@@ -50,6 +50,7 @@ type OrderService struct {
 	orderTransactionRepo repository.OrderTransactionRepository
 	exchangeRepo         repository.ExchangeRepository
 	listingRepo          repository.ListingRepository
+	assetOwnershipRepo   repository.AssetOwnershipRepository
 	userClient           pb.UserServiceClient
 	bankingClient        pb.BankingServiceClient
 
@@ -65,6 +66,7 @@ func NewOrderService(
 	orderTransactionRepo repository.OrderTransactionRepository,
 	exchangeRepo repository.ExchangeRepository,
 	listingRepo repository.ListingRepository,
+	assetOwnershipRepo repository.AssetOwnershipRepository,
 	userClient pb.UserServiceClient,
 	bankingClient pb.BankingServiceClient,
 ) *OrderService {
@@ -73,6 +75,7 @@ func NewOrderService(
 		orderTransactionRepo: orderTransactionRepo,
 		exchangeRepo:         exchangeRepo,
 		listingRepo:          listingRepo,
+		assetOwnershipRepo:   assetOwnershipRepo,
 		userClient:           userClient,
 		bankingClient:        bankingClient,
 		now:                  time.Now,
@@ -159,6 +162,11 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 
 	initialPricePerUnit := calculateInitialPricePerUnit(req, listing)
 	session := s.resolveExchangeSession(exchange)
+	ownerType := model.OwnerTypeClient
+	if authCtx.IdentityType == auth.IdentityEmployee {
+		ownerType = model.OwnerTypeActuary
+	}
+
 	order := model.Order{
 		UserID:            authCtx.IdentityID,
 		AccountNumber:     req.AccountNumber,
@@ -177,6 +185,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 		Triggered:         req.OrderType == model.OrderTypeMarket || req.OrderType == model.OrderTypeLimit,
 		CommissionCharged: false,
 		CommissionExempt:  authCtx.IdentityType == auth.IdentityEmployee,
+		OwnerType:         ownerType,
 		IsDone:            false,
 		CreatedAt:         s.now(),
 		UpdatedAt:         s.now(),
@@ -436,8 +445,57 @@ func (s *OrderService) processOrder(ctx context.Context, order *model.Order) err
 		return err
 	}
 
+	if err := s.updateAssetOwnership(ctx, order, fillQty, pricePerUnit); err != nil {
+		return err
+	}
+
 	_ = settlement
 	return nil
+}
+
+func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Order, fillQty uint, pricePerUnit float64) error {
+	if order.Listing.Asset == nil {
+		return nil
+	}
+
+	fillAmount := float64(fillQty) * order.ContractSize
+	assetID := order.Listing.AssetID
+
+	existing, err := s.assetOwnershipRepo.FindByIdentity(ctx, order.UserID, order.OwnerType)
+	if err != nil {
+		return err
+	}
+
+	var ownership *model.AssetOwnership
+	for i := range existing {
+		if existing[i].AssetID == assetID && existing[i].AccountNumber == order.AccountNumber {
+			ownership = &existing[i]
+			break
+		}
+	}
+
+	if ownership == nil {
+		ownership = &model.AssetOwnership{
+			IdentityID:    order.UserID,
+			OwnerType:     order.OwnerType,
+			AssetID:       assetID,
+			AccountNumber: order.AccountNumber,
+		}
+	}
+
+	switch order.Direction {
+	case model.OrderDirectionBuy:
+		newAmount := ownership.Amount + fillAmount
+		if newAmount > 0 {
+			ownership.AvgBuyPrice = (ownership.AvgBuyPrice*ownership.Amount + pricePerUnit*fillAmount) / newAmount
+		}
+		ownership.Amount = newAmount
+	case model.OrderDirectionSell:
+		ownership.Amount -= fillAmount
+	}
+
+	ownership.UpdatedAt = s.now()
+	return s.assetOwnershipRepo.Upsert(ctx, ownership)
 }
 
 func (s *OrderService) resolveOrderStatus(ctx context.Context, authCtx *auth.AuthContext, order *model.Order) model.OrderStatus {

@@ -61,6 +61,8 @@ func main() {
 				return permission.NewGrpcPermissionProvider(c)
 			},
 			handler.NewHealthHandler,
+			repository.NewAssetRepository,
+			repository.NewAssetOwnershipRepository,
 			repository.NewForexRepository,
 			func(cfg *config.Configuration) client.ExchangeRateClient {
 				return client.NewExchangeRateClient(cfg.ExchangeRateAPIKey)
@@ -80,7 +82,6 @@ func main() {
 			handler.NewExchangeHandler,
 			service.NewListingService,
 			handler.NewListingHandler,
-			repository.NewOrderOwnershipRepository,
 			repository.NewFuturesContractRepository,
 			service.NewPortfolioService,
 			handler.NewPortfolioHandler,
@@ -103,12 +104,13 @@ func main() {
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
 			return db.AutoMigrate(
+				&model.Asset{},
 				&model.Listing{},
 				&model.Stock{},
 				&model.Option{},
 				&model.ListingDailyPriceInfo{},
 				&model.Order{},
-				&model.OrderOwnership{},
+				&model.AssetOwnership{},
 				&model.OrderTransaction{},
 				&model.ForexPair{},
 				&model.FuturesContract{},

@@ -24,7 +24,7 @@ func (r *orderRepositoryImpl) Create(ctx context.Context, order *model.Order) er
 
 func (r *orderRepositoryImpl) FindByID(ctx context.Context, id uint) (*model.Order, error) {
 	var order model.Order
-	result := r.db.WithContext(ctx).Preload("Listing").First(&order, id)
+	result := r.db.WithContext(ctx).Preload("Listing").Preload("Listing.Asset").First(&order, id)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -60,7 +60,7 @@ func (r *orderRepositoryImpl) FindAll(ctx context.Context, page, pageSize int, u
 	}
 
 	offset := (page - 1) * pageSize
-	err := db.Preload("Listing").Limit(pageSize).Offset(offset).Find(&orders).Error
+	err := db.Preload("Listing").Preload("Listing.Asset").Limit(pageSize).Offset(offset).Find(&orders).Error
 	return orders, count, err
 }
 
@@ -69,6 +69,7 @@ func (r *orderRepositoryImpl) FindReadyForExecution(ctx context.Context, before 
 
 	query := r.db.WithContext(ctx).
 		Preload("Listing").
+		Preload("Listing.Asset").
 		Where("status = ?", model.OrderStatusApproved).
 		Where("is_done = ?", false).
 		Where("next_execution_at IS NOT NULL").

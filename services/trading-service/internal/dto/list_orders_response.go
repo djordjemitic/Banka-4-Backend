@@ -18,7 +18,7 @@ func ToOrderSummaryResponse(o model.Order) OrderSummaryResponse {
 	return OrderSummaryResponse{
 		OrderID:           o.OrderID,
 		UserID:            o.UserID,
-		ListingName:       o.Listing.Name,
+		ListingName:       listingAssetName(o.Listing),
 		Quantity:          o.Quantity,
 		ContractSize:      o.ContractSize,
 		PricePerUnit:      o.PricePerUnit,

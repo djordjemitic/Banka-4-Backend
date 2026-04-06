@@ -59,15 +59,16 @@ func (r *forexRepository) FindAll(ctx context.Context, filter ListingFilter) ([]
 	err := q.Order("rate " + dir).
 		Limit(filter.PageSize).
 		Offset((filter.Page - 1) * filter.PageSize).
+		Preload("Asset").
 		Preload("Listing").
 		Find(&pairs).Error
 
 	return pairs, count, err
 }
 
-func (r *forexRepository) FindByListingIDs(ctx context.Context, listingIDs []uint) ([]model.ForexPair, error) {
+func (r *forexRepository) FindByAssetIDs(ctx context.Context, assetIDs []uint) ([]model.ForexPair, error) {
 	var pairs []model.ForexPair
-	if err := r.db.WithContext(ctx).Where("listing_id IN ?", listingIDs).Preload("Listing").Find(&pairs).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("asset_id IN ?", assetIDs).Preload("Asset").Preload("Listing").Find(&pairs).Error; err != nil {
 		return nil, err
 	}
 	return pairs, nil

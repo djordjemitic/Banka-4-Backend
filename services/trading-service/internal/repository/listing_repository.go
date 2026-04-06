@@ -19,5 +19,6 @@ type ListingRepository interface {
 	Count(ctx context.Context) (int64, error)
 	CreateDailyPriceInfo(ctx context.Context, info *model.ListingDailyPriceInfo) error
 	FindLastDailyPriceInfo(ctx context.Context, listingID uint, beforeDate time.Time) (*model.ListingDailyPriceInfo, error)
-	FindByType(ctx context.Context, listingType model.ListingType) ([]model.Listing, error)
+	FindByAssetType(ctx context.Context, assetType model.AssetType) ([]model.Listing, error)
+	FindByAssetIDs(ctx context.Context, assetIDs []uint) ([]model.Listing, error)
 }

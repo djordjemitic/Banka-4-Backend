@@ -48,7 +48,7 @@ func setupStockServiceTestDB(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 
-	if err := db.AutoMigrate(&model.Exchange{}, &model.Listing{}, &model.Stock{}, &model.Option{}); err != nil {
+	if err := db.AutoMigrate(&model.Exchange{}, &model.Asset{}, &model.Listing{}, &model.ListingDailyPriceInfo{}, &model.Stock{}, &model.Option{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,6 +88,7 @@ func TestSeedStocks_UsesSymbolMICAndGeneratedOptionsUseSimulationExchange(t *tes
 	}
 
 	svc := newStockService(
+		repository.NewAssetRepository(db),
 		repository.NewListingRepository(db),
 		repository.NewStockRepository(db),
 		repository.NewOptionRepository(db),
@@ -99,8 +100,15 @@ func TestSeedStocks_UsesSymbolMICAndGeneratedOptionsUseSimulationExchange(t *tes
 		t.Fatalf("SeedStocks failed: %v", err)
 	}
 
+	// Check the asset was created
+	var asset model.Asset
+	if err := db.Where("ticker = ?", "AAPL").First(&asset).Error; err != nil {
+		t.Fatalf("failed to load seeded stock asset: %v", err)
+	}
+
+	// Check the listing references the asset with the right exchange
 	var stockListing model.Listing
-	if err := db.Where("ticker = ?", "AAPL").First(&stockListing).Error; err != nil {
+	if err := db.Where("asset_id = ?", asset.AssetID).First(&stockListing).Error; err != nil {
 		t.Fatalf("failed to load seeded stock listing: %v", err)
 	}
 
@@ -112,8 +120,14 @@ func TestSeedStocks_UsesSymbolMICAndGeneratedOptionsUseSimulationExchange(t *tes
 		t.Fatalf("SeedOptions failed: %v", err)
 	}
 
+	// Check that option assets use the simulation exchange
+	var optionAsset model.Asset
+	if err := db.Where("asset_type = ?", model.AssetTypeOption).First(&optionAsset).Error; err != nil {
+		t.Fatalf("failed to load seeded option asset: %v", err)
+	}
+
 	var optionListing model.Listing
-	if err := db.Where("listing_type = ?", model.ListingTypeOption).First(&optionListing).Error; err != nil {
+	if err := db.Where("asset_id = ?", optionAsset.AssetID).First(&optionListing).Error; err != nil {
 		t.Fatalf("failed to load seeded option listing: %v", err)
 	}
 
