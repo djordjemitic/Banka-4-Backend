@@ -47,10 +47,16 @@ func latestDaily(infos []model.ListingDailyPriceInfo) *model.ListingDailyPriceIn
 }
 
 func baseResponse(l model.Listing, daily *model.ListingDailyPriceInfo) dto.BaseListingResponse {
+	var ticker, name string
+	if l.Asset != nil {
+		ticker = l.Asset.Ticker
+		name = l.Asset.Name
+	}
+
 	r := dto.BaseListingResponse{
 		ListingID:         l.ListingID,
-		Ticker:            l.Ticker,
-		Name:              l.Name,
+		Ticker:            ticker,
+		Name:              name,
 		Exchange:          l.ExchangeMIC,
 		Price:             l.Price,
 		Ask:               l.Ask,
@@ -135,12 +141,13 @@ func (s *ListingService) GetStocks(ctx context.Context, q dto.ListingQuery) (*dt
 		PageSize: q.PageSize,
 	}, nil
 }
+
 func (s *ListingService) GetStockDetails(ctx context.Context, listingID uint) (*dto.StockDetailedResponse, error) {
 	l, err := s.listingRepo.FindByID(ctx, listingID)
 	if err != nil {
 		return nil, commonErrors.InternalErr(err)
 	}
-	if l == nil || l.ListingType != model.ListingTypeStock || l.Stock == nil {
+	if l == nil || l.Asset == nil || l.Asset.AssetType != model.AssetTypeStock || l.Stock == nil {
 		return nil, commonErrors.NotFoundErr("stock not found")
 	}
 
@@ -151,17 +158,7 @@ func (s *ListingService) GetStockDetails(ctx context.Context, listingID uint) (*
 		DividendYield:       l.Stock.DividendYield,
 	}
 
-	history := make([]dto.DailyPriceResponse, len(l.DailyPriceInfos))
-	for i, h := range l.DailyPriceInfos {
-		history[i] = dto.DailyPriceResponse{
-			Date:   h.Date,
-			Price:  h.Price,
-			Ask:    h.Ask,
-			Bid:    h.Bid,
-			Change: h.Change,
-			Volume: h.Volume,
-		}
-	}
+	history := mapHistory(l.DailyPriceInfos)
 
 	options, err := s.optionRepo.FindByStockID(ctx, l.Stock.StockID)
 	if err != nil {
@@ -170,9 +167,12 @@ func (s *ListingService) GetStockDetails(ctx context.Context, listingID uint) (*
 
 	optionResponses := make([]dto.OptionResponse, len(options))
 	for i, o := range options {
-
+		var optListing model.Listing
+		if o.Listing != nil {
+			optListing = *o.Listing
+		}
 		optionResponses[i] = dto.OptionResponse{
-			BaseListingResponse: baseResponse(o.Listing, nil),
+			BaseListingResponse: baseResponse(optListing, nil),
 			Strike:              o.StrikePrice,
 			OptionType:          string(o.OptionType),
 			SettlementDate:      o.SettlementDate,
@@ -201,26 +201,25 @@ func (s *ListingService) GetFutures(ctx context.Context, q dto.ListingQuery) (*d
 		return nil, commonErrors.InternalErr(err)
 	}
 
-	// IZMENA: koristimo ListingIDs umesto tickera
-	ids := make([]uint, len(listings))
+	assetIDs := make([]uint, len(listings))
 	for i, l := range listings {
-		ids[i] = l.ListingID
+		assetIDs[i] = l.AssetID
 	}
 
-	contracts, err := s.futuresRepo.FindByListingIDs(ctx, ids)
+	contracts, err := s.futuresRepo.FindByAssetIDs(ctx, assetIDs)
 	if err != nil {
 		return nil, commonErrors.InternalErr(err)
 	}
 
 	contractMap := make(map[uint]model.FuturesContract)
 	for _, fc := range contracts {
-		contractMap[fc.ListingID] = fc
+		contractMap[fc.AssetID] = fc
 	}
 
 	data := make([]dto.FuturesResponse, len(listings))
 	for i, l := range listings {
 		daily := latestDaily(l.DailyPriceInfos)
-		fc := contractMap[l.ListingID] // IZMENA
+		fc := contractMap[l.AssetID]
 		data[i] = dto.FuturesResponse{
 			BaseListingResponse: baseResponse(l, daily),
 			SettlementDate:      fc.SettlementDate,
@@ -239,11 +238,11 @@ func (s *ListingService) GetFutures(ctx context.Context, q dto.ListingQuery) (*d
 
 func (s *ListingService) GetFutureDetails(ctx context.Context, listingID uint) (*dto.FutureDetailedResponse, error) {
 	l, err := s.listingRepo.FindByID(ctx, listingID)
-	if err != nil || l == nil || l.ListingType != model.ListingTypeFuture {
+	if err != nil || l == nil || l.Asset == nil || l.Asset.AssetType != model.AssetTypeFuture {
 		return nil, commonErrors.NotFoundErr("future not found")
 	}
 
-	fc, err := s.futuresRepo.FindByListingIDs(ctx, []uint{listingID})
+	fc, err := s.futuresRepo.FindByAssetIDs(ctx, []uint{l.AssetID})
 	if err != nil || len(fc) == 0 {
 		return nil, commonErrors.NotFoundErr("contract details not found")
 	}
@@ -274,11 +273,15 @@ func (s *ListingService) GetForex(ctx context.Context, q dto.ListingQuery) (*dto
 
 	data := make([]dto.ForexResponse, len(pairs))
 	for i, p := range pairs {
-		daily := latestDaily(p.Listing.DailyPriceInfos)
-		base := baseResponse(p.Listing, daily)
+		var listing model.Listing
+		if p.Listing != nil {
+			listing = *p.Listing
+		}
+		daily := latestDaily(listing.DailyPriceInfos)
+		base := baseResponse(listing, daily)
 		base.Ticker = p.Base + "/" + p.Quote
 		base.Name = p.Base + "/" + p.Quote
-		base.Exchange = p.Listing.ExchangeMIC
+		base.Exchange = listing.ExchangeMIC
 		base.Price = p.Rate
 
 		data[i] = dto.ForexResponse{
@@ -300,11 +303,11 @@ func (s *ListingService) GetForex(ctx context.Context, q dto.ListingQuery) (*dto
 
 func (s *ListingService) GetForexDetails(ctx context.Context, listingID uint) (*dto.ForexDetailedResponse, error) {
 	l, err := s.listingRepo.FindByID(ctx, listingID)
-	if err != nil || l == nil || l.ListingType != model.ListingTypeForexPair {
+	if err != nil || l == nil || l.Asset == nil || l.Asset.AssetType != model.AssetTypeForexPair {
 		return nil, commonErrors.NotFoundErr("forex not found")
 	}
 
-	pairs, err := s.forexRepo.FindByListingIDs(ctx, []uint{listingID})
+	pairs, err := s.forexRepo.FindByAssetIDs(ctx, []uint{l.AssetID})
 	if err != nil || len(pairs) == 0 {
 		return nil, commonErrors.NotFoundErr("forex pair details not found")
 	}
@@ -333,26 +336,25 @@ func (s *ListingService) GetOptions(ctx context.Context, q dto.ListingQuery) (*d
 		return nil, commonErrors.InternalErr(err)
 	}
 
-	// batch fetch options po listing ID-evima
-	ids := make([]uint, len(listings))
+	assetIDs := make([]uint, len(listings))
 	for i, l := range listings {
-		ids[i] = l.ListingID
+		assetIDs[i] = l.AssetID
 	}
 
-	options, err := s.optionRepo.FindByListingIDs(ctx, ids)
+	options, err := s.optionRepo.FindByAssetIDs(ctx, assetIDs)
 	if err != nil {
 		return nil, commonErrors.InternalErr(err)
 	}
 
 	optionMap := make(map[uint]model.Option)
 	for _, o := range options {
-		optionMap[o.ListingID] = o
+		optionMap[o.AssetID] = o
 	}
 
 	data := make([]dto.OptionResponse, len(listings))
 	for i, l := range listings {
 		daily := latestDaily(l.DailyPriceInfos)
-		o := optionMap[l.ListingID]
+		o := optionMap[l.AssetID]
 		data[i] = dto.OptionResponse{
 			BaseListingResponse: baseResponse(l, daily),
 			Strike:              o.StrikePrice,
@@ -374,11 +376,11 @@ func (s *ListingService) GetOptions(ctx context.Context, q dto.ListingQuery) (*d
 
 func (s *ListingService) GetOptionDetails(ctx context.Context, listingID uint) (*dto.OptionDetailedResponse, error) {
 	l, err := s.listingRepo.FindByID(ctx, listingID)
-	if err != nil || l == nil || l.ListingType != model.ListingTypeOption {
+	if err != nil || l == nil || l.Asset == nil || l.Asset.AssetType != model.AssetTypeOption {
 		return nil, commonErrors.NotFoundErr("option not found")
 	}
 
-	opt, err := s.optionRepo.FindByListingIDs(ctx, []uint{listingID})
+	opt, err := s.optionRepo.FindByAssetIDs(ctx, []uint{l.AssetID})
 	if err != nil || len(opt) == 0 {
 		return nil, commonErrors.NotFoundErr("option details not found")
 	}

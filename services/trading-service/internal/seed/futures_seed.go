@@ -53,23 +53,11 @@ func SeedFuturesContracts(db *gorm.DB) error {
 			continue
 		}
 
-		contract := model.FuturesContract{
-			ContractSize:   size,
-			ContractUnit:   row[3],
-			SettlementDate: date,
-			Listing: model.Listing{
-				Ticker:      row[0],
-				Name:        row[1],
-				ExchangeMIC: resolveExistingExchangeMIC(db, row[6]),
-				LastRefresh: time.Now(),
-				Price:       price * size,
-				Ask:         price * size,
-				ListingType: model.ListingTypeFuture,
-			},
-		}
+		ticker := row[0]
 
-		var existingListing model.Listing
-		err = db.Where("ticker = ?", contract.Listing.Ticker).First(&existingListing).Error
+		// Check if asset already exists
+		var existingAsset model.Asset
+		err = db.Where("ticker = ?", ticker).First(&existingAsset).Error
 		if err == nil {
 			continue
 		}
@@ -77,6 +65,35 @@ func SeedFuturesContracts(db *gorm.DB) error {
 			return err
 		}
 
+		// Create asset
+		asset := model.Asset{
+			Ticker:    ticker,
+			Name:      row[1],
+			AssetType: model.AssetTypeFuture,
+		}
+		if err := db.Create(&asset).Error; err != nil {
+			return err
+		}
+
+		// Create listing
+		listing := model.Listing{
+			AssetID:     asset.AssetID,
+			ExchangeMIC: resolveExistingExchangeMIC(db, row[6]),
+			LastRefresh: time.Now(),
+			Price:       price * size,
+			Ask:         price * size,
+		}
+		if err := db.Create(&listing).Error; err != nil {
+			return err
+		}
+
+		// Create futures contract
+		contract := model.FuturesContract{
+			AssetID:        asset.AssetID,
+			ContractSize:   size,
+			ContractUnit:   row[3],
+			SettlementDate: date,
+		}
 		if err := db.Create(&contract).Error; err != nil {
 			return err
 		}

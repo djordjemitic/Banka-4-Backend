@@ -5,8 +5,9 @@ import "time"
 type ForexPair struct {
 	ForexPairID uint `gorm:"primaryKey"`
 
-	ListingID uint `gorm:"not null;uniqueIndex"`
-	Listing   Listing
+	AssetID uint     `gorm:"not null;uniqueIndex"`
+	Asset   Asset
+	Listing *Listing `gorm:"foreignKey:AssetID;references:AssetID;constraint:-"`
 
 	Base  string `gorm:"size:3;not null;uniqueIndex:idx_pair"`
 	Quote string `gorm:"size:3;not null;uniqueIndex:idx_pair"`

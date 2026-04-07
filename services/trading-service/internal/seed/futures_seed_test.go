@@ -22,7 +22,13 @@ func setupSeedTestDB(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 
-	if err := db.AutoMigrate(&model.Exchange{}, &model.Listing{}, &model.FuturesContract{}); err != nil {
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+
+	if err := db.AutoMigrate(&model.Exchange{}, &model.Asset{}, &model.Listing{}, &model.FuturesContract{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -40,8 +46,14 @@ func TestSeedFuturesContracts_NormalizesAndFallsBackToSeededExchangeMICs(t *test
 		t.Fatalf("SeedFuturesContracts failed: %v", err)
 	}
 
+	// Find asset by ticker, then check its listing
+	var zcjAsset model.Asset
+	if err := db.Where("ticker = ?", "ZCJ26").First(&zcjAsset).Error; err != nil {
+		t.Fatalf("failed loading CME-mapped asset: %v", err)
+	}
+
 	var cmeListing model.Listing
-	if err := db.Where("ticker = ?", "ZCJ26").First(&cmeListing).Error; err != nil {
+	if err := db.Where("asset_id = ?", zcjAsset.AssetID).First(&cmeListing).Error; err != nil {
 		t.Fatalf("failed loading CME-mapped listing: %v", err)
 	}
 
@@ -49,8 +61,13 @@ func TestSeedFuturesContracts_NormalizesAndFallsBackToSeededExchangeMICs(t *test
 		t.Fatalf("expected ZCJ26 exchange XCME, got %s", cmeListing.ExchangeMIC)
 	}
 
+	var clmAsset model.Asset
+	if err := db.Where("ticker = ?", "CLM26").First(&clmAsset).Error; err != nil {
+		t.Fatalf("failed loading fallback asset: %v", err)
+	}
+
 	var fallbackListing model.Listing
-	if err := db.Where("ticker = ?", "CLM26").First(&fallbackListing).Error; err != nil {
+	if err := db.Where("asset_id = ?", clmAsset.AssetID).First(&fallbackListing).Error; err != nil {
 		t.Fatalf("failed loading fallback listing: %v", err)
 	}
 

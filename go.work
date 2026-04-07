@@ -2,7 +2,7 @@ go 1.26
 
 use (
 	common
-	services/user-service
 	services/banking-service
 	services/trading-service
+	services/user-service
 )

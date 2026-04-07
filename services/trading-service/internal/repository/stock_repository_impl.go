@@ -17,14 +17,14 @@ func NewStockRepository(db *gorm.DB) StockRepository {
 
 func (r *stockRepository) Upsert(ctx context.Context, stock *model.Stock) error {
 	return r.db.WithContext(ctx).
-		Where(model.Stock{ListingID: stock.ListingID}).
+		Where(model.Stock{AssetID: stock.AssetID}).
 		Assign(*stock).
 		FirstOrCreate(stock).Error
 }
 
-func (r *stockRepository) FindByListingIDs(ctx context.Context, listingIDs []uint) ([]model.Stock, error) {
+func (r *stockRepository) FindByAssetIDs(ctx context.Context, assetIDs []uint) ([]model.Stock, error) {
 	var stocks []model.Stock
-	if err := r.db.WithContext(ctx).Where("listing_id IN ?", listingIDs).Preload("Listing").Find(&stocks).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("asset_id IN ?", assetIDs).Preload("Asset").Preload("Listing").Find(&stocks).Error; err != nil {
 		return nil, err
 	}
 	return stocks, nil
@@ -32,7 +32,7 @@ func (r *stockRepository) FindByListingIDs(ctx context.Context, listingIDs []uin
 
 func (r *stockRepository) FindAll(ctx context.Context) ([]model.Stock, error) {
 	var stocks []model.Stock
-	if err := r.db.WithContext(ctx).Preload("Listing").Find(&stocks).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Asset").Preload("Listing").Find(&stocks).Error; err != nil {
 		return nil, err
 	}
 	return stocks, nil

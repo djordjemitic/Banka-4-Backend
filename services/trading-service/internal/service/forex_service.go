@@ -15,15 +15,17 @@ const refreshInterval = 1 * time.Hour
 
 type ForexService struct {
 	repo        repository.ForexRepository
+	assetRepo   repository.AssetRepository
 	listingRepo repository.ListingRepository
 	client      client.ExchangeRateClient
 	mu          sync.Mutex
 	cancel      context.CancelFunc
 }
 
-func NewForexService(repo repository.ForexRepository, listingRepo repository.ListingRepository, client client.ExchangeRateClient) *ForexService {
+func NewForexService(repo repository.ForexRepository, assetRepo repository.AssetRepository, listingRepo repository.ListingRepository, client client.ExchangeRateClient) *ForexService {
 	return &ForexService{
 		repo:        repo,
+		assetRepo:   assetRepo,
 		listingRepo: listingRepo,
 		client:      client,
 	}
@@ -50,7 +52,7 @@ func (s *ForexService) Start() {
 	s.mu.Lock()
 	if s.cancel != nil {
 		s.mu.Unlock()
-		return // već radi
+		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
@@ -92,7 +94,6 @@ func (s *ForexService) refreshFromAPI(ctx context.Context) error {
 	providerUpdatedAt := time.Unix(resp.TimeLastUpdateUnix, 0)
 	providerNextUpdateAt := time.Unix(resp.TimeNextUpdateUnix, 0)
 
-	// sve valute koje podržava banka
 	supported := []string{"EUR", "USD", "CHF", "GBP", "JPY", "CAD", "AUD", "RSD"}
 
 	rates := resp.ConversionRates
@@ -114,21 +115,28 @@ func (s *ForexService) refreshFromAPI(ctx context.Context) error {
 			rate := quoteRate / baseRate
 			ticker := base + "/" + quote
 
+			asset := &model.Asset{
+				Ticker:    ticker,
+				Name:      ticker,
+				AssetType: model.AssetTypeForexPair,
+			}
+			if err := s.assetRepo.Upsert(ctx, asset); err != nil {
+				return err
+			}
+
 			listing := &model.Listing{
-				Ticker:      ticker,
-				Name:        ticker,
+				AssetID:     asset.AssetID,
 				ExchangeMIC: model.SimulatedExchangeMIC,
 				LastRefresh: time.Now(),
 				Price:       rate,
 				Ask:         rate,
-				ListingType: model.ListingTypeForexPair,
 			}
 			if err := s.listingRepo.Upsert(ctx, listing); err != nil {
 				return err
 			}
 
 			pair := model.ForexPair{
-				ListingID:            listing.ListingID,
+				AssetID:              asset.AssetID,
 				Base:                 base,
 				Quote:                quote,
 				Rate:                 rate,

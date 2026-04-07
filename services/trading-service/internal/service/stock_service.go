@@ -19,6 +19,7 @@ const (
 )
 
 type StockService struct {
+	assetRepo    repository.AssetRepository
 	listingRepo  repository.ListingRepository
 	stockRepo    repository.StockRepository
 	optionRepo   repository.OptionRepository
@@ -37,16 +38,18 @@ type stockMarketClient interface {
 }
 
 func NewStockService(
+	assetRepo repository.AssetRepository,
 	listingRepo repository.ListingRepository,
 	stockRepo repository.StockRepository,
 	optionRepo repository.OptionRepository,
 	exchangeRepo repository.ExchangeRepository,
 	client *client.StockClient,
 ) *StockService {
-	return newStockService(listingRepo, stockRepo, optionRepo, exchangeRepo, client)
+	return newStockService(assetRepo, listingRepo, stockRepo, optionRepo, exchangeRepo, client)
 }
 
 func newStockService(
+	assetRepo repository.AssetRepository,
 	listingRepo repository.ListingRepository,
 	stockRepo repository.StockRepository,
 	optionRepo repository.OptionRepository,
@@ -54,6 +57,7 @@ func newStockService(
 	client stockMarketClient,
 ) *StockService {
 	return &StockService{
+		assetRepo:    assetRepo,
 		listingRepo:  listingRepo,
 		stockRepo:    stockRepo,
 		optionRepo:   optionRepo,
@@ -186,21 +190,28 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 			continue
 		}
 
+		asset := &model.Asset{
+			Ticker:    sym.Symbol,
+			Name:      profile.Name,
+			AssetType: model.AssetTypeStock,
+		}
+		if err := s.assetRepo.Upsert(ctx, asset); err != nil {
+			continue
+		}
+
 		listing := &model.Listing{
-			Ticker:      sym.Symbol,
-			Name:        profile.Name,
+			AssetID:     asset.AssetID,
 			ExchangeMIC: micCode,
 			LastRefresh: time.Now(),
 			Price:       quote.CurrentPrice,
 			Ask:         quote.High,
-			ListingType: model.ListingTypeStock,
 		}
 		if err := s.listingRepo.Upsert(ctx, listing); err != nil {
 			continue
 		}
 
 		stock := &model.Stock{
-			ListingID:         listing.ListingID,
+			AssetID:           asset.AssetID,
 			OutstandingShares: profile.ShareOutstanding,
 			DividendYield:     financials.Metric.DividendYieldIndicatedAnnual,
 		}
@@ -238,7 +249,7 @@ func (s *StockService) SeedOptions(ctx context.Context, limit int) error {
 		if stockCount >= limit {
 			break
 		}
-		if stock.Listing.Price == 0 {
+		if stock.Listing == nil || stock.Listing.Price == 0 {
 			continue
 		}
 
@@ -255,15 +266,15 @@ func (s *StockService) SeedOptions(ctx context.Context, limit int) error {
 		seeded := 0
 		for _, exp := range expirations {
 			for _, strike := range strikes {
-				s.seedGeneratedOption(ctx, stock.Listing, strike, exp, model.OptionTypeCall, stock.StockID)
-				s.seedGeneratedOption(ctx, stock.Listing, strike, exp, model.OptionTypePut, stock.StockID)
+				s.seedGeneratedOption(ctx, stock.Asset, *stock.Listing, strike, exp, model.OptionTypeCall, stock.StockID)
+				s.seedGeneratedOption(ctx, stock.Asset, *stock.Listing, strike, exp, model.OptionTypePut, stock.StockID)
 				seeded += 2
 			}
 		}
 
 		optionCount += seeded
 		stockCount++
-		log.Printf("[seed-options] [%d/%d] seeded %d options for %s", stockCount, limit, seeded, stock.Listing.Ticker)
+		log.Printf("[seed-options] [%d/%d] seeded %d options for %s", stockCount, limit, seeded, stock.Asset.Ticker)
 	}
 
 	log.Printf("[seed-options] done. seeded %d options across %d stocks.", optionCount, stockCount)
@@ -292,13 +303,14 @@ func generateExpirationDates() []time.Time {
 
 func (s *StockService) seedGeneratedOption(
 	ctx context.Context,
+	stockAsset model.Asset,
 	stockListing model.Listing,
 	strike float64,
 	expiration time.Time,
 	optType model.OptionType,
 	stockID uint,
 ) {
-	ticker := fmt.Sprintf("%s:%s:%.2f", stockListing.Ticker, optType, strike)
+	ticker := fmt.Sprintf("%s:%s:%.2f", stockAsset.Ticker, optType, strike)
 
 	// --- Black-Scholes price calculation ---
 	S := stockListing.Price
@@ -317,21 +329,28 @@ func (s *StockService) seedGeneratedOption(
 	}
 	// --- end calculation ---
 
+	asset := &model.Asset{
+		Ticker:    ticker,
+		Name:      fmt.Sprintf("%s %s %.2f %s", stockAsset.Ticker, optType, strike, expiration.Format("2006-01-02")),
+		AssetType: model.AssetTypeOption,
+	}
+	if err := s.assetRepo.Upsert(ctx, asset); err != nil {
+		return
+	}
+
 	listing := &model.Listing{
-		Ticker:      ticker,
-		Name:        fmt.Sprintf("%s %s %.2f %s", stockListing.Ticker, optType, strike, expiration.Format("2006-01-02")),
+		AssetID:     asset.AssetID,
 		ExchangeMIC: model.SimulatedExchangeMIC,
 		LastRefresh: time.Now(),
 		Price:       premium,
 		Ask:         premium,
-		ListingType: model.ListingTypeOption,
 	}
 	if err := s.listingRepo.Upsert(ctx, listing); err != nil {
 		return
 	}
 
 	option := &model.Option{
-		ListingID:         listing.ListingID,
+		AssetID:           asset.AssetID,
 		StockID:           stockID,
 		OptionType:        optType,
 		StrikePrice:       strike,
@@ -355,6 +374,10 @@ func (s *StockService) RefreshPrices(ctx context.Context) error {
 	minuteStart := time.Now()
 
 	for _, listing := range listings {
+		if listing.Asset == nil {
+			continue
+		}
+
 		if callsThisMinute+1 > maxCallsPerMinute {
 			elapsed := time.Since(minuteStart)
 			if elapsed < time.Minute {
@@ -367,7 +390,7 @@ func (s *StockService) RefreshPrices(ctx context.Context) error {
 			minuteStart = time.Now()
 		}
 
-		quote, err := s.client.GetQuote(listing.Ticker)
+		quote, err := s.client.GetQuote(listing.Asset.Ticker)
 		callsThisMinute++
 		if err != nil || quote.CurrentPrice == 0 {
 			continue
@@ -388,7 +411,10 @@ func (s *StockService) RefreshOptions(ctx context.Context) error {
 	}
 
 	for _, stock := range stocks {
-		if stringsContainsColon(stock.Listing.Ticker) {
+		if stringsContainsColon(stock.Asset.Ticker) {
+			continue
+		}
+		if stock.Listing == nil {
 			continue
 		}
 
@@ -402,8 +428,8 @@ func (s *StockService) RefreshOptions(ctx context.Context) error {
 
 		for _, exp := range expirations {
 			for _, strike := range strikes {
-				s.seedGeneratedOption(ctx, stock.Listing, strike, exp, model.OptionTypeCall, stock.StockID)
-				s.seedGeneratedOption(ctx, stock.Listing, strike, exp, model.OptionTypePut, stock.StockID)
+				s.seedGeneratedOption(ctx, stock.Asset, *stock.Listing, strike, exp, model.OptionTypeCall, stock.StockID)
+				s.seedGeneratedOption(ctx, stock.Asset, *stock.Listing, strike, exp, model.OptionTypePut, stock.StockID)
 			}
 		}
 	}

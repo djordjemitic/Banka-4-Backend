@@ -23,7 +23,13 @@ func setupListingRepositoryTestDB(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 
-	if err := db.AutoMigrate(&model.Exchange{}, &model.Listing{}); err != nil {
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+
+	if err := db.AutoMigrate(&model.Exchange{}, &model.Asset{}, &model.Listing{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -50,28 +56,44 @@ func TestListingRepositoryUpsert_RejectsUnknownExchangeMIC(t *testing.T) {
 	db := setupListingRepositoryTestDB(t)
 	repo := NewListingRepository(db)
 
+	// Create a valid asset first
+	asset := &model.Asset{
+		Ticker:    "AAPL",
+		Name:      "Apple Inc",
+		AssetType: model.AssetTypeStock,
+	}
+	if err := db.Create(asset).Error; err != nil {
+		t.Fatalf("failed to create asset: %v", err)
+	}
+
 	valid := &model.Listing{
-		Ticker:      "AAPL",
-		Name:        "Apple Inc",
+		AssetID:     asset.AssetID,
 		ExchangeMIC: "XNAS",
 		LastRefresh: time.Now(),
 		Price:       150,
 		Ask:         151,
-		ListingType: model.ListingTypeStock,
 	}
 
 	if err := repo.Upsert(context.Background(), valid); err != nil {
 		t.Fatalf("expected valid listing insert to succeed: %v", err)
 	}
 
+	// Create another asset for the invalid listing
+	badAsset := &model.Asset{
+		Ticker:    "BADX",
+		Name:      "Broken Exchange Listing",
+		AssetType: model.AssetTypeStock,
+	}
+	if err := db.Create(badAsset).Error; err != nil {
+		t.Fatalf("failed to create asset: %v", err)
+	}
+
 	invalid := &model.Listing{
-		Ticker:      "BADX",
-		Name:        "Broken Exchange Listing",
+		AssetID:     badAsset.AssetID,
 		ExchangeMIC: "BADX",
 		LastRefresh: time.Now(),
 		Price:       1,
 		Ask:         1,
-		ListingType: model.ListingTypeStock,
 	}
 
 	if err := repo.Upsert(context.Background(), invalid); err == nil {

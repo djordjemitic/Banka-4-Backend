@@ -94,3 +94,6 @@ Wells Fargo Securities Europe S.a.,WFSE,WFSE,France,Euro,+1, 09:00, 17:30
 Bnp Paribas Sa London Branch - Systematic Internaliser,BNPP SA LB SI,BNPL,United Kingdom,British Pound Sterling,+0, 08:00, 16:00
 Warsaw Stock Exchange/indices,GPWB,WIND,Poland,Polish Zloty,+1, 09:00, 17:35
 test,TEST,TEST,Poland,test,-4, 09:00, 23:35
+New York Mercantile Exchange,NYMEX,XNYM,United States,United States Dollar,-4,09:30,16:00
+Commodity Exchange Inc.,COMEX,XCEC,United States,United States Dollar,-4,09:30,16:00
+Intercontinental Exchange,ICE,XICE,United States,United States Dollar,-4,09:30,16:00

@@ -19,7 +19,7 @@ func NewListingRepository(db *gorm.DB) ListingRepository {
 
 func (r *listingRepository) FindAll(ctx context.Context) ([]model.Listing, error) {
 	var listings []model.Listing
-	if err := r.db.WithContext(ctx).Find(&listings).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Asset").Find(&listings).Error; err != nil {
 		return nil, err
 	}
 	return listings, nil
@@ -28,6 +28,7 @@ func (r *listingRepository) FindAll(ctx context.Context) ([]model.Listing, error
 func (r *listingRepository) FindByID(ctx context.Context, id uint) (*model.Listing, error) {
 	var listing model.Listing
 	result := r.db.WithContext(ctx).
+		Preload("Asset").
 		Preload("Stock").
 		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
 			return db.Order("date ASC")
@@ -54,7 +55,7 @@ func (r *listingRepository) FindLatestDailyPriceInfo(ctx context.Context, listin
 
 func (r *listingRepository) Upsert(ctx context.Context, listing *model.Listing) error {
 	return r.db.WithContext(ctx).
-		Where(model.Listing{Ticker: listing.Ticker}).
+		Where(model.Listing{AssetID: listing.AssetID}).
 		Assign(*listing).
 		FirstOrCreate(listing).Error
 }
@@ -75,6 +76,10 @@ func (r *listingRepository) Count(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
+func joinAssets(q *gorm.DB) *gorm.DB {
+	return q.Joins("INNER JOIN assets ON assets.asset_id = listings.asset_id")
+}
+
 func joinLatestDaily(q *gorm.DB) *gorm.DB {
 	return q.Joins(`
 		LEFT JOIN listing_daily_price_infos AS ldpi
@@ -90,7 +95,7 @@ func joinLatestDaily(q *gorm.DB) *gorm.DB {
 func applyListingFilters(q *gorm.DB, filter ListingFilter) *gorm.DB {
 	if filter.Search != "" {
 		like := "%" + filter.Search + "%"
-		q = q.Where("listings.ticker LIKE ? OR listings.name LIKE ?", like, like)
+		q = q.Where("assets.ticker LIKE ? OR assets.name LIKE ?", like, like)
 	}
 	if filter.Exchange != "" {
 		q = q.Where("listings.exchange_mic LIKE ?", filter.Exchange+"%")
@@ -107,7 +112,6 @@ func applyListingFilters(q *gorm.DB, filter ListingFilter) *gorm.DB {
 	if filter.AskMax > 0 {
 		q = q.Where("listings.ask <= ?", filter.AskMax)
 	}
-	// FIX: bid i volume su u listing_daily_price_infos, ne u listings
 	if filter.BidMin > 0 {
 		q = q.Where("ldpi.bid >= ?", filter.BidMin)
 	}
@@ -143,9 +147,10 @@ func (r *listingRepository) FindStocks(ctx context.Context, filter ListingFilter
 	var count int64
 
 	db := r.db.WithContext(ctx).
-		Model(&model.Listing{}).
-		Joins("INNER JOIN stocks ON stocks.listing_id = listings.listing_id")
+		Model(&model.Listing{})
 
+	db = joinAssets(db)
+	db = db.Joins("INNER JOIN stocks ON stocks.asset_id = assets.asset_id")
 	db = joinLatestDaily(db)
 	db = applyListingFilters(db, filter)
 
@@ -154,6 +159,7 @@ func (r *listingRepository) FindStocks(ctx context.Context, filter ListingFilter
 	}
 
 	err := db.
+		Preload("Asset").
 		Preload("Stock").
 		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
 			return db.Order("date DESC").Limit(1)
@@ -171,9 +177,10 @@ func (r *listingRepository) FindFutures(ctx context.Context, filter ListingFilte
 	var count int64
 
 	db := r.db.WithContext(ctx).
-		Model(&model.Listing{}).
-		Joins("INNER JOIN futures_contracts ON futures_contracts.listing_id = listings.listing_id")
+		Model(&model.Listing{})
 
+	db = joinAssets(db)
+	db = db.Joins("INNER JOIN futures_contracts ON futures_contracts.asset_id = assets.asset_id")
 	db = joinLatestDaily(db)
 	db = applyListingFilters(db, filter)
 
@@ -189,6 +196,7 @@ func (r *listingRepository) FindFutures(ctx context.Context, filter ListingFilte
 	}
 
 	err := db.
+		Preload("Asset").
 		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
 			return db.Order("date DESC").Limit(1)
 		}).
@@ -205,9 +213,10 @@ func (r *listingRepository) FindOptions(ctx context.Context, filter ListingFilte
 	var count int64
 
 	db := r.db.WithContext(ctx).
-		Model(&model.Listing{}).
-		Joins("INNER JOIN options ON options.listing_id = listings.listing_id")
+		Model(&model.Listing{})
 
+	db = joinAssets(db)
+	db = db.Joins("INNER JOIN options ON options.asset_id = assets.asset_id")
 	db = joinLatestDaily(db)
 	db = applyListingFilters(db, filter)
 
@@ -222,6 +231,7 @@ func (r *listingRepository) FindOptions(ctx context.Context, filter ListingFilte
 	}
 
 	err := db.
+		Preload("Asset").
 		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
 			return db.Order("date DESC").Limit(1)
 		}).
@@ -232,6 +242,7 @@ func (r *listingRepository) FindOptions(ctx context.Context, filter ListingFilte
 
 	return listings, count, err
 }
+
 func (r *listingRepository) CreateDailyPriceInfo(ctx context.Context, info *model.ListingDailyPriceInfo) error {
 	return r.db.WithContext(ctx).Create(info).Error
 }
@@ -248,10 +259,24 @@ func (r *listingRepository) FindLastDailyPriceInfo(ctx context.Context, listingI
 	return &info, err
 }
 
-func (r *listingRepository) FindByType(ctx context.Context, listingType model.ListingType) ([]model.Listing, error) {
+func (r *listingRepository) FindByAssetIDs(ctx context.Context, assetIDs []uint) ([]model.Listing, error) {
 	var listings []model.Listing
 	err := r.db.WithContext(ctx).
-		Where("listing_type = ?", listingType).
+		Where("asset_id IN ?", assetIDs).
+		Preload("Asset").
+		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
+			return db.Order("date DESC").Limit(1)
+		}).
+		Find(&listings).Error
+	return listings, err
+}
+
+func (r *listingRepository) FindByAssetType(ctx context.Context, assetType model.AssetType) ([]model.Listing, error) {
+	var listings []model.Listing
+	err := r.db.WithContext(ctx).
+		Joins("INNER JOIN assets ON assets.asset_id = listings.asset_id").
+		Where("assets.asset_type = ?", assetType).
+		Preload("Asset").
 		Find(&listings).Error
 	return listings, err
 }
