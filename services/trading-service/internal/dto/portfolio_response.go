@@ -23,5 +23,5 @@ type PortfolioAssetResponse struct {
 }
 
 type PortfolioProfitResponse struct {
-	TotalProfitRSD float64 `json:"totalProfit"`
+	TotalProfitRSD float64 `json:"totalProfitRSD"`
 }

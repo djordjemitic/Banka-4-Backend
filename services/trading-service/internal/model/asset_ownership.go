@@ -18,4 +18,5 @@ type AssetOwnership struct {
 	Amount           float64 `gorm:"not null;default:0"`
 	AvgBuyPriceRSD   float64 `gorm:"not null;default:0"`
 	UpdatedAt        time.Time
+	OTCInfo          *OTCInfo `gorm:"foreignKey:AssetOwnershipID"`
 }

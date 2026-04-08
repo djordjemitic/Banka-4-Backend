@@ -19,10 +19,16 @@ var errTest = errors.New("repo error")
 type fakeAssetOwnershipRepo struct {
 	ownerships []model.AssetOwnership
 	err        error
+	byID       *model.AssetOwnership
+	findByIDErr error
 }
 
 func (r *fakeAssetOwnershipRepo) FindByIdentity(_ context.Context, _ uint, _ model.OwnerType) ([]model.AssetOwnership, error) {
 	return r.ownerships, r.err
+}
+
+func (r *fakeAssetOwnershipRepo) FindByID(_ context.Context, _ uint) (*model.AssetOwnership, error) {
+	return r.byID, r.findByIDErr
 }
 
 func (r *fakeAssetOwnershipRepo) Upsert(_ context.Context, _ *model.AssetOwnership) error {

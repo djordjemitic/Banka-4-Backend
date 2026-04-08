@@ -106,10 +106,12 @@ type fakeListingRepo struct {
 	dailyPriceErr  error
 
 	// stubs for the rest of the interface
-	allListings []model.Listing
-	findAllErr  error
-	countVal    int64
-	countErr    error
+	allListings     []model.Listing
+	findAllErr      error
+	countVal        int64
+	countErr        error
+	byAssetIDs      []model.Listing
+	byAssetIDsErr   error
 }
 
 func (r *fakeListingRepo) FindByID(_ context.Context, _ uint) (*model.Listing, error) {
@@ -159,7 +161,7 @@ func (r *fakeListingRepo) FindByAssetType(_ context.Context, _ model.AssetType) 
 }
 
 func (r *fakeListingRepo) FindByAssetIDs(_ context.Context, _ []uint) ([]model.Listing, error) {
-	return nil, nil
+	return r.byAssetIDs, r.byAssetIDsErr
 }
 
 

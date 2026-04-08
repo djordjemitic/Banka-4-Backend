@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"gorm.io/gorm"
@@ -25,6 +26,15 @@ func (r *assetOwnershipRepository) FindByIdentity(ctx context.Context, identityI
 		return nil, err
 	}
 	return ownerships, nil
+}
+
+func (r *assetOwnershipRepository) FindByID(ctx context.Context, id uint) (*model.AssetOwnership, error) {
+	var o model.AssetOwnership
+	result := r.db.WithContext(ctx).First(&o, id)
+	if stderrors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &o, result.Error
 }
 
 func (r *assetOwnershipRepository) Upsert(ctx context.Context, ownership *model.AssetOwnership) error {
