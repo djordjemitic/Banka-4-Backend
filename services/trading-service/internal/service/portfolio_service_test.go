@@ -92,11 +92,14 @@ func makeOwnership(assetID uint, ticker string, amount, avgBuyPrice float64) mod
 }
 
 func makeListing(assetID uint, price float64) *model.Listing {
-	return &model.Listing{
-		ListingID: assetID,
-		AssetID:   assetID,
-		Price:     price,
-	}
+    return &model.Listing{
+        ListingID: assetID,
+        AssetID:   assetID,
+        Price:     price,
+        Exchange: &model.Exchange{
+            Currency: "USD",
+        },
+    }
 }
 
 // --- Tests ---

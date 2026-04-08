@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"context"
 
 	pkgerrors "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
@@ -115,10 +116,11 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 			currentPrice = m.listing.Price
 		}
 
-		currency := "USD" // default
-		if m.listing != nil && m.listing.Exchange != nil && m.listing.Exchange.Currency != "" {
-			currency = m.listing.Exchange.Currency
+		if m.listing == nil || m.listing.Exchange == nil || m.listing.Exchange.Currency == "" {
+			return nil, pkgerrors.InternalErr(fmt.Errorf("user listing does not have valid exchange/currency code"))
 		}
+
+		currency := m.listing.Exchange.Currency
 
 		// Convert current price to RSD for consistent profit calculation
 		currentPriceRSD, err := s.toRSD(ctx, currentPrice, currency)
