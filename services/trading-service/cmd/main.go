@@ -147,6 +147,9 @@ func main() {
 		fx.Invoke(func(db *gorm.DB) error {
 			return seed.AccumulatedTax(db)
 		}),
+		fx.Invoke(func(db *gorm.DB) error {
+			return seed.SeedPublicOTCStocks(db)
+		}),
 		fx.Invoke(server.NewServer),
 		fx.Invoke(func(lc fx.Lifecycle, scheduler *service.TaxScheduler) {
 			lc.Append(fx.Hook{
