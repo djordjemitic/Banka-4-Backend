@@ -167,10 +167,16 @@ func (f *fakeBankingClient) ExecuteTradeSettlement(_ context.Context, _, _ strin
 	return &pb.ExecuteTradeSettlementResponse{TransactionId: 1}, nil
 }
 
-type fakePermissionProvider struct{}
+type fakePermissionProvider struct {
+	perms []permission.Permission
+}
 
 func (f *fakePermissionProvider) GetPermissions(_ context.Context, _ *commonjwt.Claims) ([]permission.Permission, error) {
-	return nil, nil
+	if f.perms != nil {
+		return f.perms, nil
+	}
+
+	return []permission.Permission{permission.Trading, permission.TradingMargin}, nil
 }
 
 func testConfig() *config.Configuration {
@@ -200,6 +206,10 @@ func setupTestDB(t *testing.T) *gorm.DB {
 }
 
 func setupTestRouter(t *testing.T, db *gorm.DB) (*gin.Engine, *fakeUserClient) {
+	return setupTestRouterWithPermissions(t, db, nil)
+}
+
+func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permission.Permission) (*gin.Engine, *fakeUserClient) {
 	t.Helper()
 
 	cfg := testConfig()
@@ -209,7 +219,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) (*gin.Engine, *fakeUserClient) {
 		agentIDs:      map[uint64]bool{20: true},
 	}
 	var bankingClient client.BankingClient = &fakeBankingClient{}
-	var permProvider auth.PermissionProvider = &fakePermissionProvider{}
+	var permProvider auth.PermissionProvider = &fakePermissionProvider{perms: perms}
 
 	exchangeRepo := repository.NewExchangeRepository(db)
 	listingRepo := repository.NewListingRepository(db)

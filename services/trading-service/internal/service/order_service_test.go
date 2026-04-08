@@ -12,6 +12,7 @@ import (
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/repository"
@@ -21,9 +22,9 @@ import (
 
 type fakeOrderRepo struct {
 	// FindAll
-	orders   []model.Order
-	total    int64
-	findErr  error
+	orders  []model.Order
+	total   int64
+	findErr error
 
 	// FindByID
 	orderByID   *model.Order
@@ -162,7 +163,6 @@ func (r *fakeListingRepo) FindByAssetIDs(_ context.Context, _ []uint) ([]model.L
 	return nil, nil
 }
 
-
 // ── Fake User Service Client ──────────────────────────────────────
 
 type fakeUserServiceClient struct {
@@ -225,6 +225,7 @@ func clientAuthCtx() context.Context {
 		IdentityID:   1,
 		IdentityType: auth.IdentityClient,
 		ClientID:     &clientID,
+		Permissions:  []permission.Permission{permission.Trading, permission.TradingMargin},
 	})
 }
 
@@ -233,6 +234,7 @@ func employeeAuthCtx(employeeID uint) context.Context {
 		IdentityID:   100,
 		IdentityType: auth.IdentityEmployee,
 		EmployeeID:   &employeeID,
+		Permissions:  []permission.Permission{permission.Trading, permission.TradingMargin},
 	})
 }
 
@@ -241,6 +243,7 @@ func supervisorAuthCtx(employeeID uint) context.Context {
 		IdentityID:   200,
 		IdentityType: auth.IdentityEmployee,
 		EmployeeID:   &employeeID,
+		Permissions:  []permission.Permission{permission.Trading, permission.TradingMargin},
 	})
 }
 
@@ -398,6 +401,42 @@ func TestCreateOrder_LimitSell_Success(t *testing.T) {
 	require.Equal(t, model.OrderDirectionSell, order.Direction)
 	require.NotNil(t, order.LimitValue)
 	require.Equal(t, 155.0, *order.LimitValue)
+}
+
+func TestCreateOrder_MarginWithoutPermission_Forbidden(t *testing.T) {
+	listing := defaultListing()
+	exchange := defaultExchange()
+
+	svc := newTestOrderService(
+		&fakeOrderRepo{},
+		&fakeOrderTransactionRepo{},
+		&fakeExchangeRepo{exchange: exchange},
+		&fakeListingRepo{listing: listing},
+		&fakeUserServiceClient{},
+		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)},
+	)
+
+	clientID := uint(10)
+	ctx := auth.SetAuthOnContext(context.Background(), &auth.AuthContext{
+		IdentityID:   1,
+		IdentityType: auth.IdentityClient,
+		ClientID:     &clientID,
+		Permissions:  []permission.Permission{permission.Trading},
+	})
+
+	req := dto.CreateOrderRequest{
+		ListingID:     1,
+		AccountNumber: "444000100000000110",
+		OrderType:     model.OrderTypeMarket,
+		Direction:     model.OrderDirectionBuy,
+		Quantity:      10,
+		Margin:        true,
+	}
+
+	order, err := svc.CreateOrder(ctx, req)
+	require.Error(t, err)
+	require.Nil(t, order)
+	require.Contains(t, err.Error(), "margin trading permission required")
 }
 
 func TestCreateOrder_MissingAuthContext(t *testing.T) {
@@ -1446,26 +1485,26 @@ func TestProcessOrder_MarketOrder_FullFill(t *testing.T) {
 	txRepo := &fakeOrderTransactionRepo{}
 	bankingClient := &fakeOrderBankingClient{
 		settlementResp: &pb.ExecuteTradeSettlementResponse{
-			SourceAmount:         151.0,
-			SourceCurrencyCode:   "USD",
-			DestinationAmount:    151.0,
+			SourceAmount:            151.0,
+			SourceCurrencyCode:      "USD",
+			DestinationAmount:       151.0,
 			DestinationCurrencyCode: "USD",
 		},
 	}
 	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient)
 
 	order := &model.Order{
-		OrderID:      1,
-		ListingID:    1,
-		OrderType:    model.OrderTypeMarket,
-		Direction:    model.OrderDirectionBuy,
-		Quantity:     1,
-		FilledQty:    0,
-		ContractSize: 1,
-		Triggered:    true,
-		AllOrNone:    true,
-		Status:       model.OrderStatusApproved,
-		AccountNumber: "444000100000000110",
+		OrderID:          1,
+		ListingID:        1,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        model.OrderDirectionBuy,
+		Quantity:         1,
+		FilledQty:        0,
+		ContractSize:     1,
+		Triggered:        true,
+		AllOrNone:        true,
+		Status:           model.OrderStatusApproved,
+		AccountNumber:    "444000100000000110",
 		CommissionExempt: true,
 	}
 
@@ -1500,16 +1539,16 @@ func TestProcessDueOrders_WithReadyOrders_ProcessesThem(t *testing.T) {
 
 	readyOrders := []model.Order{
 		{
-			OrderID:      1,
-			ListingID:    1,
-			OrderType:    model.OrderTypeMarket,
-			Direction:    model.OrderDirectionBuy,
-			Quantity:     1,
-			ContractSize: 1,
-			Triggered:    true,
-			AllOrNone:    true,
-			Status:       model.OrderStatusApproved,
-			AccountNumber: "444000100000000110",
+			OrderID:          1,
+			ListingID:        1,
+			OrderType:        model.OrderTypeMarket,
+			Direction:        model.OrderDirectionBuy,
+			Quantity:         1,
+			ContractSize:     1,
+			Triggered:        true,
+			AllOrNone:        true,
+			Status:           model.OrderStatusApproved,
+			AccountNumber:    "444000100000000110",
 			CommissionExempt: true,
 		},
 	}
@@ -1520,9 +1559,9 @@ func TestProcessDueOrders_WithReadyOrders_ProcessesThem(t *testing.T) {
 	txRepo := &fakeOrderTransactionRepo{}
 	bankingClient := &fakeOrderBankingClient{
 		settlementResp: &pb.ExecuteTradeSettlementResponse{
-			SourceAmount:         151.0,
-			SourceCurrencyCode:   "USD",
-			DestinationAmount:    151.0,
+			SourceAmount:            151.0,
+			SourceCurrencyCode:      "USD",
+			DestinationAmount:       151.0,
 			DestinationCurrencyCode: "USD",
 		},
 	}

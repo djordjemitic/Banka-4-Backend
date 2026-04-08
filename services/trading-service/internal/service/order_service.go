@@ -15,6 +15,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
@@ -145,6 +146,10 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 	authCtx := auth.GetAuthFromContext(ctx)
 	if authCtx == nil {
 		return nil, errors.UnauthorizedErr("not authenticated")
+	}
+
+	if req.Margin && !auth.HasPermission(authCtx.Permissions, permission.TradingMargin) {
+		return nil, errors.ForbiddenErr("margin trading permission required")
 	}
 
 	if err := s.validateAccount(ctx, req.AccountNumber, authCtx); err != nil {
