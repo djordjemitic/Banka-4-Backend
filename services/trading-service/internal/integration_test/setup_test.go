@@ -224,13 +224,10 @@ func setupTestRouter(t *testing.T, db *gorm.DB) (*gin.Engine, *fakeUserClient) {
 
 	exchangeSvc := service.NewExchangeService(exchangeRepo)
 	listingSvc := service.NewListingService(listingRepo, futuresRepo, forexRepo, optionRepo)
-<<<<<<< main
-	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, ownershipRepo, futuresRepo, optionRepo, userClient, bankingClient)
-	portfolioSvc := service.NewPortfolioService(ownershipRepo, stockRepo, optionRepo, futuresRepo, forexRepo)
-=======
-	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, userClient, bankingClient)
+
+	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, futuresRepo, optionRepo, userClient, bankingClient)
 	portfolioSvc := service.NewPortfolioService(assetOwnershipRepo, stockRepo, optionRepo, futuresRepo, forexRepo, bankingClient)
->>>>>>> main
+
 	taxSvc := service.NewTaxService(taxRepo, bankingClient, cfg)
 
 	healthHandler := handler.NewHealthHandler()
