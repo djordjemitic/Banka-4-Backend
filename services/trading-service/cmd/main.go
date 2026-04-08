@@ -169,6 +169,16 @@ func main() {
 				},
 			})
 		}),
+		fx.Invoke(func(db *gorm.DB) {
+			go func() {
+				time.Sleep(1 * time.Minute)
+				if err := seed.SeedDailyPriceHistory(db, 365); err != nil {
+						log.Printf("Failed to seed daily price history after delay: %v", err)
+				} else {
+						log.Println("Daily price history seeded successfully")
+				}
+			}()
+		}),
 		fx.Invoke(func(lc fx.Lifecycle, dailyJob *job.DailyPriceJob) {
 			c := cron.New(cron.WithLocation(time.UTC))
 			_, err := c.AddFunc("0 0 * * *", func() {
