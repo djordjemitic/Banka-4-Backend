@@ -168,6 +168,12 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 		ownerType = model.OwnerTypeActuary
 	}
 
+	if req.Direction == model.OrderDirectionSell && listing.Asset != nil {
+		if err := s.validateSellOwnership(ctx, authCtx.IdentityID, ownerType, listing.AssetID, float64(req.Quantity)); err != nil {
+			return nil, err
+		}
+	}
+
 	order := model.Order{
 		UserID:            authCtx.IdentityID,
 		AccountNumber:     req.AccountNumber,
@@ -498,6 +504,9 @@ func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Or
 		}
 		ownership.Amount = newAmount
 	case model.OrderDirectionSell:
+		if ownership.Amount < fillAmount {
+			return errors.BadRequestErr("insufficient asset ownership to sell")
+		}
 		ownership.Amount -= fillAmount
 	}
 
@@ -531,6 +540,22 @@ func (s *OrderService) resolveOrderStatus(ctx context.Context, authCtx *auth.Aut
 	}
 
 	return model.OrderStatusApproved
+}
+
+func (s *OrderService) validateSellOwnership(ctx context.Context, identityID uint, ownerType model.OwnerType, assetID uint, quantity float64) error {
+	ownerships, err := s.assetOwnershipRepo.FindByIdentity(ctx, identityID, ownerType)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+	for _, o := range ownerships {
+		if o.AssetID == assetID {
+			if o.Amount < quantity {
+				return errors.BadRequestErr("insufficient asset ownership to sell")
+			}
+			return nil
+		}
+	}
+	return errors.BadRequestErr("insufficient asset ownership to sell")
 }
 
 func (s *OrderService) validateAccount(ctx context.Context, accountNumber string, authCtx *auth.AuthContext) error {
