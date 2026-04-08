@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v7.34.1
-// source: banking.proto
+// source: common/proto/banking.proto
 
 package pb
 
@@ -128,22 +128,22 @@ type BankingServiceServer interface {
 type UnimplementedBankingServiceServer struct{}
 
 func (UnimplementedBankingServiceServer) GetAccountByNumber(context.Context, *GetAccountByNumberRequest) (*GetAccountByNumberResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAccountByNumber not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetAccountByNumber not implemented")
 }
 func (UnimplementedBankingServiceServer) HasActiveLoan(context.Context, *HasActiveLoanRequest) (*HasActiveLoanResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method HasActiveLoan not implemented")
+	return nil, status.Error(codes.Unimplemented, "method HasActiveLoan not implemented")
 }
 func (UnimplementedBankingServiceServer) CreatePaymentWithoutVerification(context.Context, *CreatePaymentRequest) (*CreatePaymentResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreatePaymentWithoutVerification not implemented")
+	return nil, status.Error(codes.Unimplemented, "method CreatePaymentWithoutVerification not implemented")
 }
 func (UnimplementedBankingServiceServer) GetAccountsByClientID(context.Context, *GetAccountsByClientIDRequest) (*GetAccountsByClientIDResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAccountsByClientID not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetAccountsByClientID not implemented")
 }
 func (UnimplementedBankingServiceServer) ConvertCurrency(context.Context, *ConvertCurrencyRequest) (*ConvertCurrencyResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ConvertCurrency not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ConvertCurrency not implemented")
 }
 func (UnimplementedBankingServiceServer) ExecuteTradeSettlement(context.Context, *ExecuteTradeSettlementRequest) (*ExecuteTradeSettlementResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ExecuteTradeSettlement not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ExecuteTradeSettlement not implemented")
 }
 func (UnimplementedBankingServiceServer) mustEmbedUnimplementedBankingServiceServer() {}
 func (UnimplementedBankingServiceServer) testEmbeddedByValue()                        {}
@@ -156,7 +156,7 @@ type UnsafeBankingServiceServer interface {
 }
 
 func RegisterBankingServiceServer(s grpc.ServiceRegistrar, srv BankingServiceServer) {
-	// If the following call pancis, it indicates UnimplementedBankingServiceServer was
+	// If the following call panics, it indicates UnimplementedBankingServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
@@ -307,5 +307,5 @@ var BankingService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "banking.proto",
+	Metadata: "common/proto/banking.proto",
 }

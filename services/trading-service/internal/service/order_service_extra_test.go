@@ -405,7 +405,7 @@ func TestCreateOrder_ExpiredFuture_ReturnsError(t *testing.T) {
 	listing.AssetID = 1
 	listing.Asset.AssetType = model.AssetTypeFuture
 
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{exchange: defaultExchange()}, &fakeListingRepo{listing: listing}, &fakeUserServiceClient{}, &fakeOrderBankingClient{accountResp: defaultAccountResp(10)})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{exchange: defaultExchange()}, &fakeListingRepo{listing: listing}, &fakeUserServiceClient{}, &fakeOrderBankingClient{accountResp: defaultAccountResp(10)}, &fakeTaxRecorder{})
 	svc.futuresRepo = &fakeFuturesRepo{futures: []model.FuturesContract{{SettlementDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}}}
 
 	order, err := svc.CreateOrder(clientAuthCtx(), dto.CreateOrderRequest{ListingID: 1, AccountNumber: "444000100000000110", OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionBuy, Quantity: 10})
@@ -419,7 +419,7 @@ func TestCreateOrder_ExpiredOption_ReturnsError(t *testing.T) {
 	listing.AssetID = 1
 	listing.Asset.AssetType = model.AssetTypeOption
 
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{exchange: defaultExchange()}, &fakeListingRepo{listing: listing}, &fakeUserServiceClient{}, &fakeOrderBankingClient{accountResp: defaultAccountResp(10)})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{exchange: defaultExchange()}, &fakeListingRepo{listing: listing}, &fakeUserServiceClient{}, &fakeOrderBankingClient{accountResp: defaultAccountResp(10)}, &fakeTaxRecorder{})
 	svc.optionRepo = &fakeOptionRepo{options: []model.Option{{SettlementDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}}}
 
 	order, err := svc.CreateOrder(clientAuthCtx(), dto.CreateOrderRequest{ListingID: 1, AccountNumber: "444000100000000110", OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionBuy, Quantity: 10})

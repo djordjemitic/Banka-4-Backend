@@ -456,6 +456,7 @@ func TestCreateOrder_ClientMargin_WithActiveLoanAndFunds_Success(t *testing.T) {
 		&fakeListingRepo{listing: listing},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10), hasActiveLoan: true},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -486,6 +487,7 @@ func TestCreateOrder_ClientMargin_WithoutActiveLoan_Forbidden(t *testing.T) {
 		&fakeListingRepo{listing: listing},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10), hasActiveLoan: false},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -519,6 +521,7 @@ func TestCreateOrder_EmployeeMargin_WithoutPermission_Forbidden(t *testing.T) {
 			CurrencyCode:     "USD",
 			AvailableBalance: 1000,
 		}},
+		&fakeTaxRecorder{},
 	)
 
 	employeeID := uint(5)
@@ -554,6 +557,7 @@ func TestCreateOrder_Margin_WithInsufficientFunds_Forbidden(t *testing.T) {
 		&fakeListingRepo{listing: listing},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10), hasActiveLoan: true},
+		&fakeTaxRecorder{},
 	)
 
 	accountResp := defaultAccountResp(10)
@@ -565,6 +569,7 @@ func TestCreateOrder_Margin_WithInsufficientFunds_Forbidden(t *testing.T) {
 		&fakeListingRepo{listing: listing},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{accountResp: accountResp, hasActiveLoan: true},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
