@@ -12,6 +12,7 @@ const (
 )
 
 type PortfolioAssetResponse struct {
+	AssetID           uint      `json:"assetId"`
 	Type              AssetType `json:"type"`
 	Ticker            string    `json:"ticker"`
 	Amount            float64   `json:"amount"`

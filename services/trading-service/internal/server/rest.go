@@ -123,6 +123,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			actuary.GET("/:actId/assets", portfolioHandler.GetActuaryPortfolio)
 			actuary.GET("/:actId/assets/profit", portfolioHandler.GetActuaryPortfolioProfit)
 			actuary.GET("/:actId/accumulated-tax", taxHandler.GetActuaryAccumulatedTax)
+			actuary.POST("/:actId/options/:assetId/exercise", portfolioHandler.ExerciseOption)
 		}
 
 		orders := api.Group("/orders")

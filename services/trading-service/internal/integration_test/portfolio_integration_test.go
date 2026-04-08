@@ -3,6 +3,7 @@
 package integration_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -93,4 +94,68 @@ func TestGetActuaryPortfolio_InvalidID(t *testing.T) {
 
 	rec := performRequest(t, router, http.MethodGet, "/api/actuary/abc/assets", nil, auth)
 	require.NotEqual(t, http.StatusOK, rec.Code)
+}
+
+func TestExerciseOption_Success(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	exchange := seedExchange(t, db, "XNYS")
+	stockListing := seedListing(t, db, "AAPL", exchange.MicCode, model.AssetTypeStock, 190.0)
+	stock := seedStock(t, db, stockListing.ListingID)
+
+	optionListing := seedListing(t, db, "AAPL:CALL:150.00", exchange.MicCode, model.AssetTypeOption, 15.0)
+	seedOption(t, db, optionListing.ListingID, stock.StockID)
+
+	optionOwnership := &model.AssetOwnership{
+		IdentityID:     10,
+		OwnerType:      model.OwnerTypeActuary,
+		AssetID:        optionListing.AssetID,
+		Amount:         100,
+		AvgBuyPriceRSD: 12,
+	}
+	if err := db.Create(optionOwnership).Error; err != nil {
+		t.Fatalf("seed option ownership: %v", err)
+	}
+
+	auth := authHeaderForSupervisor(t)
+	rec := performRequest(
+		t,
+		router,
+		http.MethodPost,
+		fmt.Sprintf("/api/actuary/10/options/%d/exercise", optionListing.AssetID),
+		map[string]any{"account_number": "444000100000000001"},
+		auth,
+	)
+	requireStatus(t, rec, http.StatusOK)
+
+	response := decodeResponse[struct {
+		OptionAssetID      uint    `json:"option_asset_id"`
+		StockAssetID       uint    `json:"stock_asset_id"`
+		ExercisedContracts uint    `json:"exercised_contracts"`
+		PurchasedShares    float64 `json:"purchased_shares"`
+		TotalCost          float64 `json:"total_cost"`
+	}](t, rec)
+
+	require.Equal(t, optionListing.AssetID, response.OptionAssetID)
+	require.Equal(t, stock.AssetID, response.StockAssetID)
+	require.Equal(t, uint(1), response.ExercisedContracts)
+	require.Equal(t, 100.0, response.PurchasedShares)
+	require.Equal(t, 15000.0, response.TotalCost)
+
+	var updatedOptionOwnership model.AssetOwnership
+	if err := db.Where("identity_id = ? AND owner_type = ? AND asset_id = ?", 10, model.OwnerTypeActuary, optionListing.AssetID).
+		First(&updatedOptionOwnership).Error; err != nil {
+		t.Fatalf("load updated option ownership: %v", err)
+	}
+	require.Equal(t, 0.0, updatedOptionOwnership.Amount)
+
+	var stockOwnership model.AssetOwnership
+	if err := db.Where("identity_id = ? AND owner_type = ? AND asset_id = ?", 10, model.OwnerTypeActuary, stock.AssetID).
+		First(&stockOwnership).Error; err != nil {
+		t.Fatalf("load stock ownership: %v", err)
+	}
+	require.Equal(t, 100.0, stockOwnership.Amount)
+	require.Equal(t, 150.0, stockOwnership.AvgBuyPriceRSD)
 }

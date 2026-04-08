@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/repository"
@@ -19,13 +20,16 @@ var errTest = errors.New("repo error")
 type fakeAssetOwnershipRepo struct {
 	ownerships []model.AssetOwnership
 	err        error
+	upserted   []*model.AssetOwnership
 }
 
 func (r *fakeAssetOwnershipRepo) FindByIdentity(_ context.Context, _ uint, _ model.OwnerType) ([]model.AssetOwnership, error) {
 	return r.ownerships, r.err
 }
 
-func (r *fakeAssetOwnershipRepo) Upsert(_ context.Context, _ *model.AssetOwnership) error {
+func (r *fakeAssetOwnershipRepo) Upsert(_ context.Context, ownership *model.AssetOwnership) error {
+	copy := *ownership
+	r.upserted = append(r.upserted, &copy)
 	return nil
 }
 
@@ -92,14 +96,14 @@ func makeOwnership(assetID uint, ticker string, amount, avgBuyPrice float64) mod
 }
 
 func makeListing(assetID uint, price float64) *model.Listing {
-    return &model.Listing{
-        ListingID: assetID,
-        AssetID:   assetID,
-        Price:     price,
-        Exchange: &model.Exchange{
-            Currency: "USD",
-        },
-    }
+	return &model.Listing{
+		ListingID: assetID,
+		AssetID:   assetID,
+		Price:     price,
+		Exchange: &model.Exchange{
+			Currency: "USD",
+		},
+	}
 }
 
 // --- Tests ---
@@ -121,6 +125,7 @@ func TestGetPortfolio_HappyPath_Stock(t *testing.T) {
 	require.Len(t, result, 1)
 
 	a := result[0]
+	require.Equal(t, uint(10), a.AssetID)
 	require.Equal(t, dto.AssetTypeStock, a.Type)
 	require.Equal(t, "AAPL", a.Ticker)
 	require.Equal(t, float64(10), a.Amount)
@@ -148,6 +153,7 @@ func TestGetPortfolio_HappyPath_Option(t *testing.T) {
 	require.Len(t, result, 1)
 
 	a := result[0]
+	require.Equal(t, uint(20), a.AssetID)
 	require.Equal(t, dto.AssetTypeOption, a.Type)
 	require.Equal(t, float64(200), a.Amount)
 	require.InDelta(t, (8.0-5.0)*200, a.Profit, 0.001)
@@ -172,6 +178,7 @@ func TestGetPortfolio_HappyPath_Futures(t *testing.T) {
 	require.Len(t, result, 1)
 
 	a := result[0]
+	require.Equal(t, uint(30), a.AssetID)
 	require.Equal(t, dto.AssetTypeFutures, a.Type)
 	require.Equal(t, float64(5), a.Amount)
 	require.InDelta(t, (210.0-200.0)*5, a.Profit, 0.001)
@@ -334,4 +341,173 @@ func TestGetPortfolio_EmptyPortfolio_ZeroProfit(t *testing.T) {
 		total += a.Profit
 	}
 	require.InDelta(t, 0.0, total, 0.001)
+}
+
+func TestExerciseOption_Success(t *testing.T) {
+	optionOwnership := makeOwnership(20, "AAPL:CALL:150.00", 200, 12.0)
+	optionOwnership.OwnerType = model.OwnerTypeActuary
+	optionOwnership.Asset.AssetType = model.AssetTypeOption
+
+	ownershipRepo := &fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{optionOwnership}}
+	optionRepo := &fakeOptionRepo{options: []model.Option{
+		{
+			AssetID:        20,
+			OptionType:     model.OptionTypeCall,
+			StrikePrice:    150,
+			ContractSize:   100,
+			SettlementDate: time.Now().Add(24 * time.Hour),
+			Listing:        makeListing(20, 15),
+			Stock: model.Stock{
+				AssetID: 10,
+				Asset:   model.Asset{AssetID: 10, Ticker: "AAPL", AssetType: model.AssetTypeStock},
+				Listing: makeListing(10, 190),
+			},
+		},
+	}}
+	bankingClient := &fakeOrderBankingClient{
+		accountResp: &pb.GetAccountByNumberResponse{
+			AccountNumber:    "444000100000000001",
+			AccountType:      "Bank",
+			CurrencyCode:     "USD",
+			AvailableBalance: 1_000_000,
+		},
+		settlementResp: &pb.ExecuteTradeSettlementResponse{
+			SourceAmount:            30000,
+			SourceCurrencyCode:      "USD",
+			DestinationAmount:       30000,
+			DestinationCurrencyCode: "USD",
+		},
+	}
+
+	svc := NewPortfolioService(
+		ownershipRepo,
+		&fakeStockRepo{},
+		optionRepo,
+		&fakeFuturesRepo{},
+		&fakeForexRepo{},
+		bankingClient,
+	)
+	svc.now = func() time.Time { return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC) }
+
+	resp, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeActuary, 20, "444000100000000001")
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, uint(20), resp.OptionAssetID)
+	require.Equal(t, uint(10), resp.StockAssetID)
+	require.Equal(t, uint(2), resp.ExercisedContracts)
+	require.Equal(t, 200.0, resp.PurchasedShares)
+	require.Equal(t, 30000.0, resp.TotalCost)
+	require.Len(t, ownershipRepo.upserted, 2)
+
+	var stockOwnership *model.AssetOwnership
+	var optionOwnershipUpdate *model.AssetOwnership
+	for _, ownership := range ownershipRepo.upserted {
+		switch ownership.AssetID {
+		case 10:
+			stockOwnership = ownership
+		case 20:
+			optionOwnershipUpdate = ownership
+		}
+	}
+
+	require.NotNil(t, stockOwnership)
+	require.Equal(t, 200.0, stockOwnership.Amount)
+	require.Equal(t, 150.0, stockOwnership.AvgBuyPriceRSD)
+
+	require.NotNil(t, optionOwnershipUpdate)
+	require.Equal(t, 0.0, optionOwnershipUpdate.Amount)
+}
+
+func TestExerciseOption_ExpiredOption(t *testing.T) {
+	optionOwnership := makeOwnership(20, "AAPL:CALL:150.00", 100, 12.0)
+	optionOwnership.OwnerType = model.OwnerTypeActuary
+	optionOwnership.Asset.AssetType = model.AssetTypeOption
+
+	svc := NewPortfolioService(
+		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{optionOwnership}},
+		&fakeStockRepo{},
+		&fakeOptionRepo{options: []model.Option{
+			{
+				AssetID:        20,
+				OptionType:     model.OptionTypeCall,
+				StrikePrice:    150,
+				ContractSize:   100,
+				SettlementDate: time.Date(2025, 6, 3, 10, 0, 0, 0, time.UTC),
+				Stock: model.Stock{
+					AssetID: 10,
+					Listing: makeListing(10, 190),
+				},
+			},
+		}},
+		&fakeFuturesRepo{},
+		&fakeForexRepo{},
+		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
+	)
+	svc.now = func() time.Time { return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC) }
+
+	_, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeActuary, 20, "444000100000000001")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expired option")
+}
+
+func TestExerciseOption_NotInTheMoney(t *testing.T) {
+	optionOwnership := makeOwnership(20, "AAPL:CALL:150.00", 100, 12.0)
+	optionOwnership.OwnerType = model.OwnerTypeActuary
+	optionOwnership.Asset.AssetType = model.AssetTypeOption
+
+	svc := NewPortfolioService(
+		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{optionOwnership}},
+		&fakeStockRepo{},
+		&fakeOptionRepo{options: []model.Option{
+			{
+				AssetID:        20,
+				OptionType:     model.OptionTypeCall,
+				StrikePrice:    150,
+				ContractSize:   100,
+				SettlementDate: time.Now().Add(24 * time.Hour),
+				Stock: model.Stock{
+					AssetID: 10,
+					Listing: makeListing(10, 140),
+				},
+			},
+		}},
+		&fakeFuturesRepo{},
+		&fakeForexRepo{},
+		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
+	)
+
+	_, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeActuary, 20, "444000100000000001")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not in the money")
+}
+
+func TestExerciseOption_PutOptionRejected(t *testing.T) {
+	optionOwnership := makeOwnership(20, "AAPL:PUT:150.00", 100, 12.0)
+	optionOwnership.OwnerType = model.OwnerTypeActuary
+	optionOwnership.Asset.AssetType = model.AssetTypeOption
+
+	svc := NewPortfolioService(
+		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{optionOwnership}},
+		&fakeStockRepo{},
+		&fakeOptionRepo{options: []model.Option{
+			{
+				AssetID:        20,
+				OptionType:     model.OptionTypePut,
+				StrikePrice:    150,
+				ContractSize:   100,
+				SettlementDate: time.Now().Add(24 * time.Hour),
+				Stock: model.Stock{
+					AssetID: 10,
+					Listing: makeListing(10, 140),
+				},
+			},
+		}},
+		&fakeFuturesRepo{},
+		&fakeForexRepo{},
+		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
+	)
+
+	_, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeActuary, 20, "444000100000000001")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "only call options can be exercised")
 }

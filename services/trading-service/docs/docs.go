@@ -186,6 +186,89 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/actuary/{actId}/options/{assetId}/exercise": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Exercises an actuary-owned in-the-money call option and buys the underlying stock at the strike price.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "portfolio"
+                ],
+                "summary": "Exercise an owned option",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Actuary ID",
+                        "name": "actId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Option asset ID",
+                        "name": "assetId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Exercise request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.ExerciseOptionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ExerciseOptionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/client/{clientId}/accumulated-tax": {
             "get": {
                 "security": [
@@ -1595,6 +1678,58 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.ExerciseOptionRequest": {
+            "type": "object",
+            "required": [
+                "account_number"
+            ],
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ExerciseOptionResponse": {
+            "type": "object",
+            "properties": {
+                "destination_amount": {
+                    "type": "number"
+                },
+                "destination_currency_code": {
+                    "type": "string"
+                },
+                "exercised_contracts": {
+                    "type": "integer"
+                },
+                "option_asset_id": {
+                    "type": "integer"
+                },
+                "purchased_shares": {
+                    "type": "number"
+                },
+                "remaining_contracts": {
+                    "type": "integer"
+                },
+                "remaining_option_shares": {
+                    "type": "number"
+                },
+                "source_amount": {
+                    "type": "number"
+                },
+                "source_currency_code": {
+                    "type": "string"
+                },
+                "stock_asset_id": {
+                    "type": "integer"
+                },
+                "strike_price": {
+                    "type": "number"
+                },
+                "total_cost": {
+                    "type": "number"
+                }
+            }
+        },
         "dto.ForexDetailedResponse": {
             "type": "object",
             "properties": {
@@ -2144,6 +2279,9 @@ const docTemplate = `{
             "properties": {
                 "amount": {
                     "type": "number"
+                },
+                "assetId": {
+                    "type": "integer"
                 },
                 "avgBuyPrice": {
                     "type": "number"
