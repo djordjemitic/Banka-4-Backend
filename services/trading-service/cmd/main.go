@@ -90,6 +90,9 @@ func main() {
 			repository.NewOrderRepository,
 			repository.NewOrderTransactionRepository,
 			service.NewOrderService,
+			func(svc *service.TaxService) service.TaxRecorder {
+				return svc
+			},
 			handler.NewOrderHandler,
 			repository.NewTaxRepository,
 			service.NewTaxService,
@@ -168,6 +171,16 @@ func main() {
 					return nil
 				},
 			})
+		}),
+		fx.Invoke(func(db *gorm.DB) {
+			go func() {
+				time.Sleep(1 * time.Minute)
+				if err := seed.SeedDailyPriceHistory(db, 365); err != nil {
+						log.Printf("Failed to seed daily price history after delay: %v", err)
+				} else {
+						log.Println("Daily price history seeded successfully")
+				}
+			}()
 		}),
 		fx.Invoke(func(lc fx.Lifecycle, dailyJob *job.DailyPriceJob) {
 			c := cron.New(cron.WithLocation(time.UTC))

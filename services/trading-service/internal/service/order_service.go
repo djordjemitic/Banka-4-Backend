@@ -15,6 +15,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
@@ -56,9 +57,9 @@ type OrderService struct {
 	optionRepo           repository.OptionRepository
 	userClient           client.UserServiceClient
 	bankingClient        client.BankingClient
-
-	now func() time.Time
-	rng *rand.Rand
+	taxService           TaxRecorder
+	now                  func() time.Time
+	rng                  *rand.Rand
 
 	mu     sync.Mutex
 	cancel context.CancelFunc
@@ -74,6 +75,7 @@ func NewOrderService(
 	optionRepo repository.OptionRepository,
 	userClient client.UserServiceClient,
 	bankingClient client.BankingClient,
+	taxService TaxRecorder,
 ) *OrderService {
 	return &OrderService{
 		orderRepo:            orderRepo,
@@ -85,6 +87,7 @@ func NewOrderService(
 		optionRepo:           optionRepo,
 		userClient:           userClient,
 		bankingClient:        bankingClient,
+		taxService:           taxService,
 		now:                  time.Now,
 		rng:                  rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
@@ -147,7 +150,8 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 		return nil, errors.UnauthorizedErr("not authenticated")
 	}
 
-	if err := s.validateAccount(ctx, req.AccountNumber, authCtx); err != nil {
+	account, err := s.validateAccount(ctx, req.AccountNumber, authCtx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -159,12 +163,20 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 		return nil, errors.NotFoundErr("listing not found")
 	}
 
+	if err := s.validateSettlementDate(ctx, listing); err != nil {
+		return nil, err
+	}
+
 	exchange, err := s.exchangeRepo.FindByMicCode(ctx, listing.ExchangeMIC)
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
 	if exchange == nil {
 		return nil, errors.NotFoundErr("exchange not found")
+	}
+
+	if err := s.validateMarginRequirements(ctx, authCtx, req, listing, exchange, account); err != nil {
+		return nil, err
 	}
 
 	initialPricePerUnit := calculateInitialPricePerUnit(req, listing)
@@ -203,7 +215,6 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 		nextExecutionAt := s.initialExecutionTime(session, order.AfterHours)
 		order.NextExecutionAt = &nextExecutionAt
 	}
-
 	if err := s.orderRepo.Create(ctx, &order); err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -463,7 +474,9 @@ func (s *OrderService) processOrder(ctx context.Context, order *model.Order) err
 	order.CommissionCharged = order.CommissionCharged || commission > 0
 	order.PricePerUnit = &pricePerUnit
 	order.UpdatedAt = s.now()
-
+	if err := s.recordProfitTax(ctx, order, fillQty, pricePerUnit, tradeCurrency); err != nil {
+		return err
+	}
 	if order.RemainingPortions() == 0 {
 		order.IsDone = true
 		order.NextExecutionAt = nil
@@ -563,27 +576,111 @@ func (s *OrderService) resolveOrderStatus(ctx context.Context, authCtx *auth.Aut
 	return model.OrderStatusApproved
 }
 
-func (s *OrderService) validateAccount(ctx context.Context, accountNumber string, authCtx *auth.AuthContext) error {
+func (s *OrderService) validateAccount(ctx context.Context, accountNumber string, authCtx *auth.AuthContext) (*pb.GetAccountByNumberResponse, error) {
 	account, err := s.bankingClient.GetAccountByNumber(ctx, accountNumber)
 	if err != nil {
 		st, ok := status.FromError(err)
 		if ok && st.Code() == codes.NotFound {
-			return errors.NotFoundErr("account not found")
+			return nil, errors.NotFoundErr("account not found")
 		}
-		return errors.ServiceUnavailableErr(err)
+		return nil, errors.ServiceUnavailableErr(err)
 	}
 
 	if authCtx.IdentityType == auth.IdentityClient {
 		if authCtx.ClientID == nil || uint64(*authCtx.ClientID) != account.ClientId {
-			return errors.ForbiddenErr("account does not belong to you")
+			return nil, errors.ForbiddenErr("account does not belong to you")
 		}
 	} else if authCtx.IdentityType == auth.IdentityEmployee {
 		if account.AccountType != "Bank" {
-			return errors.BadRequestErr("employees must use a bank account")
+			return nil, errors.BadRequestErr("employees must use a bank account")
 		}
 	}
 
+	return account, nil
+}
+
+func (s *OrderService) validateMarginRequirements(
+	ctx context.Context,
+	authCtx *auth.AuthContext,
+	req dto.CreateOrderRequest,
+	listing *model.Listing,
+	exchange *model.Exchange,
+	account *pb.GetAccountByNumberResponse,
+) error {
+	if !req.Margin {
+		return nil
+	}
+
+	if authCtx == nil {
+		return errors.UnauthorizedErr("not authenticated")
+	}
+
+	if authCtx.IdentityType == auth.IdentityEmployee && !auth.HasPermission(authCtx.Permissions, permission.TradingMargin) {
+		return errors.ForbiddenErr("margin trading permission required")
+	}
+
+	if authCtx.IdentityType == auth.IdentityClient {
+		if authCtx.ClientID == nil {
+			return errors.UnauthorizedErr("not authenticated")
+		}
+
+		loanResp, err := s.bankingClient.HasActiveLoan(ctx, uint64(*authCtx.ClientID))
+		if err != nil {
+			return errors.ServiceUnavailableErr(err)
+		}
+
+		if !loanResp.GetHasActiveLoan() {
+			return errors.ForbiddenErr("active loan required for margin trading")
+		}
+	}
+
+	initialMarginCost, err := s.initialMarginCostInAccountCurrency(ctx, listing, exchange, account)
+	if err != nil {
+		return err
+	}
+
+	if account.GetAvailableBalance() <= initialMarginCost {
+		return errors.ForbiddenErr("insufficient account funds for initial margin cost")
+	}
+
 	return nil
+}
+
+func (s *OrderService) initialMarginCostInAccountCurrency(
+	ctx context.Context,
+	listing *model.Listing,
+	exchange *model.Exchange,
+	account *pb.GetAccountByNumberResponse,
+) (float64, error) {
+	if listing == nil {
+		return 0, errors.BadRequestErr("listing not found")
+	}
+
+	if exchange == nil {
+		return 0, errors.BadRequestErr("exchange not found")
+	}
+
+	if account == nil {
+		return 0, errors.BadRequestErr("account not found")
+	}
+
+	initialMarginCost := listing.MaintenanceMargin * 1.1
+	if initialMarginCost <= 0 {
+		return 0, nil
+	}
+
+	tradeCurrency := normalizeCurrencyCode(exchange.Currency)
+	accountCurrency := normalizeCurrencyCode(account.GetCurrencyCode())
+	if tradeCurrency == accountCurrency {
+		return initialMarginCost, nil
+	}
+
+	converted, err := s.bankingClient.ConvertCurrency(ctx, initialMarginCost, tradeCurrency, accountCurrency)
+	if err != nil {
+		return 0, errors.ServiceUnavailableErr(err)
+	}
+
+	return converted, nil
 }
 
 func (s *OrderService) checkSupervisor(ctx context.Context) (bool, error) {
@@ -871,4 +968,90 @@ func dereferencePrice(value *float64) float64 {
 
 func normalizeCurrencyCode(currency string) string {
 	return strings.ToUpper(strings.TrimSpace(currency))
+}
+
+func (s *OrderService) recordProfitTax(ctx context.Context, order *model.Order, fillQty uint, pricePerUnit float64, tradeCurrency string) error {
+	if order.Direction != model.OrderDirectionSell || order.RemainingPortions() != 0 {
+		return nil
+	}
+
+	ownership, err := s.getOwnershipForOrder(ctx, order)
+	if err != nil {
+		return err
+	}
+	if ownership == nil || ownership.AvgBuyPriceRSD <= 0 {
+		return nil
+	}
+
+	fillAmount := float64(fillQty) * order.ContractSize
+
+	AvgBuyPriceTradeCurrency, err := s.bankingClient.ConvertCurrency(ctx, ownership.AvgBuyPriceRSD, "RSD", tradeCurrency)
+	profitInTradeCurrency := (pricePerUnit - AvgBuyPriceTradeCurrency) * fillAmount
+	if profitInTradeCurrency <= 0 {
+		return nil
+	}
+
+	accountCurrency, err := s.bankingClient.GetAccountCurrency(ctx, order.AccountNumber)
+	if err != nil {
+		return err
+	}
+
+	profitInAccountCurrency, err := s.bankingClient.ConvertCurrency(ctx, profitInTradeCurrency, tradeCurrency, accountCurrency)
+	if err != nil {
+		return err
+	}
+
+	var employeeID *uint
+	if order.OwnerType == model.OwnerTypeActuary {
+		employeeID = &order.UserID
+	}
+	return s.taxService.RecordTax(ctx, order.AccountNumber, employeeID, profitInAccountCurrency, accountCurrency)
+}
+
+func (s *OrderService) getOwnershipForOrder(ctx context.Context, order *model.Order) (*model.AssetOwnership, error) {
+	if order.Listing.Asset == nil {
+		return nil, nil
+	}
+
+	existing, err := s.assetOwnershipRepo.FindByIdentity(ctx, order.UserID, order.OwnerType)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range existing {
+		if existing[i].AssetID == order.Listing.AssetID {
+			return &existing[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func (s *OrderService) validateSettlementDate(ctx context.Context, listing *model.Listing) error {
+	if listing.Asset == nil {
+		return nil
+	}
+
+	now := s.now()
+
+	switch listing.Asset.AssetType {
+	case model.AssetTypeFuture:
+		contracts, err := s.futuresRepo.FindByAssetIDs(ctx, []uint{listing.AssetID})
+		if err != nil {
+			return errors.InternalErr(err)
+		}
+		if len(contracts) > 0 && !contracts[0].SettlementDate.After(now) {
+			return errors.BadRequestErr("cannot place order on an expired futures contract")
+		}
+
+	case model.AssetTypeOption:
+		options, err := s.optionRepo.FindByAssetIDs(ctx, []uint{listing.AssetID})
+		if err != nil {
+			return errors.InternalErr(err)
+		}
+		if len(options) > 0 && !options[0].SettlementDate.After(now) {
+			return errors.BadRequestErr("cannot place order on an expired option")
+		}
+	}
+
+	return nil
 }

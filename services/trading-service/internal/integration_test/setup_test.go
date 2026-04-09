@@ -105,6 +105,10 @@ func (f *fakeUserClient) GetClientById(_ context.Context, id uint64) (*pb.GetCli
 	}, nil
 }
 
+func (f *fakeBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
+	return "RSD", nil
+}
+
 func (f *fakeUserClient) GetEmployeeById(_ context.Context, id uint64) (*pb.GetEmployeeByIdResponse, error) {
 	isSupervisor := f.supervisorIDs[id]
 	isAgent := f.agentIDs[id]
@@ -135,6 +139,12 @@ func (f *fakeUserClient) GetAllActuaries(_ context.Context, _, _ int32, _, _ str
 	}, nil
 }
 
+type fakeTaxRecorder struct{}
+
+func (f *fakeTaxRecorder) RecordTax(_ context.Context, _ string, _ *uint, _ float64, _ string) error {
+	return nil
+}
+
 type fakeBankingClient struct{}
 
 func (f *fakeBankingClient) GetAccountByNumber(_ context.Context, accountNumber string) (*pb.GetAccountByNumberResponse, error) {
@@ -145,6 +155,10 @@ func (f *fakeBankingClient) GetAccountByNumber(_ context.Context, accountNumber 
 		CurrencyCode:     "RSD",
 		AvailableBalance: 1_000_000,
 	}, nil
+}
+
+func (f *fakeBankingClient) HasActiveLoan(_ context.Context, _ uint64) (*pb.HasActiveLoanResponse, error) {
+	return &pb.HasActiveLoanResponse{HasActiveLoan: true}, nil
 }
 
 func (f *fakeBankingClient) CreatePaymentWithoutVerification(_ context.Context, _ *pb.CreatePaymentRequest) (*pb.CreatePaymentResponse, error) {
@@ -167,10 +181,16 @@ func (f *fakeBankingClient) ExecuteTradeSettlement(_ context.Context, _, _ strin
 	return &pb.ExecuteTradeSettlementResponse{TransactionId: 1}, nil
 }
 
-type fakePermissionProvider struct{}
+type fakePermissionProvider struct {
+	perms []permission.Permission
+}
 
 func (f *fakePermissionProvider) GetPermissions(_ context.Context, _ *commonjwt.Claims) ([]permission.Permission, error) {
-	return nil, nil
+	if f.perms != nil {
+		return f.perms, nil
+	}
+
+	return []permission.Permission{permission.Trading, permission.TradingMargin}, nil
 }
 
 func testConfig() *config.Configuration {
@@ -200,6 +220,10 @@ func setupTestDB(t *testing.T) *gorm.DB {
 }
 
 func setupTestRouter(t *testing.T, db *gorm.DB) (*gin.Engine, *fakeUserClient) {
+	return setupTestRouterWithPermissions(t, db, nil)
+}
+
+func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permission.Permission) (*gin.Engine, *fakeUserClient) {
 	t.Helper()
 
 	cfg := testConfig()
@@ -209,7 +233,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) (*gin.Engine, *fakeUserClient) {
 		agentIDs:      map[uint64]bool{20: true},
 	}
 	var bankingClient client.BankingClient = &fakeBankingClient{}
-	var permProvider auth.PermissionProvider = &fakePermissionProvider{}
+	var permProvider auth.PermissionProvider = &fakePermissionProvider{perms: perms}
 
 	exchangeRepo := repository.NewExchangeRepository(db)
 	listingRepo := repository.NewListingRepository(db)
@@ -225,7 +249,8 @@ func setupTestRouter(t *testing.T, db *gorm.DB) (*gin.Engine, *fakeUserClient) {
 	exchangeSvc := service.NewExchangeService(exchangeRepo)
 	listingSvc := service.NewListingService(listingRepo, futuresRepo, forexRepo, optionRepo)
 
-	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, futuresRepo, optionRepo, userClient, bankingClient)
+	var taxRecorder service.TaxRecorder = &fakeTaxRecorder{}
+	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, futuresRepo, optionRepo, userClient, bankingClient, taxRecorder)
 	portfolioSvc := service.NewPortfolioService(assetOwnershipRepo, stockRepo, optionRepo, futuresRepo, forexRepo, bankingClient)
 
 	taxSvc := service.NewTaxService(taxRepo, bankingClient, cfg)

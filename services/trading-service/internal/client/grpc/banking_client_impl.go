@@ -28,6 +28,18 @@ func (c *BankingServiceClient) GetAccountByNumber(ctx context.Context, accountNu
 	return resp, nil
 }
 
+func (c *BankingServiceClient) HasActiveLoan(ctx context.Context, clientID uint64) (*pb.HasActiveLoanResponse, error) {
+	resp, err := c.stub.HasActiveLoan(ctx, &pb.HasActiveLoanRequest{
+		ClientId: clientID,
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("banking client HasActiveLoan: %w", err)
+	}
+
+	return resp, nil
+}
+
 func (c *BankingServiceClient) CreatePaymentWithoutVerification(ctx context.Context, req *pb.CreatePaymentRequest) (*pb.CreatePaymentResponse, error) {
 	resp, err := c.stub.CreatePaymentWithoutVerification(ctx, req)
 	if err != nil {
@@ -69,4 +81,13 @@ func (c *BankingServiceClient) ExecuteTradeSettlement(ctx context.Context, accou
 		return nil, fmt.Errorf("banking client ExecuteTradeSettlement: %w", err)
 	}
 	return resp, nil
+}
+func (c *BankingServiceClient) GetAccountCurrency(ctx context.Context, accountNumber string) (string, error) {
+	resp, err := c.stub.GetAccountByNumber(ctx, &pb.GetAccountByNumberRequest{
+		AccountNumber: accountNumber,
+	})
+	if err != nil {
+		return "", fmt.Errorf("banking client GetAccountCurrency: %w", err)
+	}
+	return resp.CurrencyCode, nil
 }
