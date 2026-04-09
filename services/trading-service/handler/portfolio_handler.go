@@ -8,7 +8,6 @@ import (
 
 	pkgerrors "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
-	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/service"
 )
 
@@ -31,6 +30,7 @@ func NewPortfolioHandler(service *service.PortfolioService) *PortfolioHandler {
 // @Failure 400 {object} errors.AppError
 // @Failure 401 {object} errors.AppError
 // @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
 // @Failure 500 {object} errors.AppError
 // @Router /api/client/{clientId}/assets [get]
 func (h *PortfolioHandler) GetClientPortfolio(c *gin.Context) {
@@ -40,7 +40,7 @@ func (h *PortfolioHandler) GetClientPortfolio(c *gin.Context) {
 		return
 	}
 
-	assets, err := h.service.GetPortfolio(c.Request.Context(), uint(clientID), model.OwnerTypeClient)
+	assets, err := h.service.GetClientPortfolio(c.Request.Context(), uint(clientID))
 	if err != nil {
 		c.Error(err)
 		return
@@ -60,6 +60,7 @@ func (h *PortfolioHandler) GetClientPortfolio(c *gin.Context) {
 // @Failure 400 {object} errors.AppError
 // @Failure 401 {object} errors.AppError
 // @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
 // @Failure 500 {object} errors.AppError
 // @Router /api/actuary/{actId}/assets [get]
 func (h *PortfolioHandler) GetActuaryPortfolio(c *gin.Context) {
@@ -69,7 +70,7 @@ func (h *PortfolioHandler) GetActuaryPortfolio(c *gin.Context) {
 		return
 	}
 
-	assets, err := h.service.GetPortfolio(c.Request.Context(), uint(actID), model.OwnerTypeActuary)
+	assets, err := h.service.GetActuaryPortfolio(c.Request.Context(), uint(actID))
 	if err != nil {
 		c.Error(err)
 		return
@@ -89,6 +90,7 @@ func (h *PortfolioHandler) GetActuaryPortfolio(c *gin.Context) {
 // @Failure 400 {object} errors.AppError
 // @Failure 401 {object} errors.AppError
 // @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
 // @Failure 500 {object} errors.AppError
 // @Router /api/client/{clientId}/assets/profit [get]
 func (h *PortfolioHandler) GetClientPortfolioProfit(c *gin.Context) {
@@ -98,7 +100,7 @@ func (h *PortfolioHandler) GetClientPortfolioProfit(c *gin.Context) {
 		return
 	}
 
-	assets, err := h.service.GetPortfolio(c.Request.Context(), uint(clientID), model.OwnerTypeClient)
+	assets, err := h.service.GetClientPortfolio(c.Request.Context(), uint(clientID))
 	if err != nil {
 		c.Error(err)
 		return
@@ -123,6 +125,7 @@ func (h *PortfolioHandler) GetClientPortfolioProfit(c *gin.Context) {
 // @Failure 400 {object} errors.AppError
 // @Failure 401 {object} errors.AppError
 // @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
 // @Failure 500 {object} errors.AppError
 // @Router /api/actuary/{actId}/assets/profit [get]
 func (h *PortfolioHandler) GetActuaryPortfolioProfit(c *gin.Context) {
@@ -132,7 +135,7 @@ func (h *PortfolioHandler) GetActuaryPortfolioProfit(c *gin.Context) {
 		return
 	}
 
-	assets, err := h.service.GetPortfolio(c.Request.Context(), uint(actID), model.OwnerTypeActuary)
+	assets, err := h.service.GetActuaryPortfolio(c.Request.Context(), uint(actID))
 	if err != nil {
 		c.Error(err)
 		return

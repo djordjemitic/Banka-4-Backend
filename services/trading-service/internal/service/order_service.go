@@ -622,11 +622,12 @@ func (s *OrderService) validateAccount(ctx context.Context, accountNumber string
 		return nil, errors.ServiceUnavailableErr(err)
 	}
 
-	if authCtx.IdentityType == auth.IdentityClient {
+	switch authCtx.IdentityType {
+	case auth.IdentityClient:
 		if authCtx.ClientID == nil || uint64(*authCtx.ClientID) != account.ClientId {
 			return nil, errors.ForbiddenErr("account does not belong to you")
 		}
-	} else if authCtx.IdentityType == auth.IdentityEmployee {
+	case auth.IdentityEmployee:
 		if account.AccountType != "Bank" {
 			return nil, errors.BadRequestErr("employees must use a bank account")
 		}

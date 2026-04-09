@@ -14,9 +14,10 @@ service UserService {
 
 message GetClientByIdRequest  { uint64 id = 1; }
 message GetClientByIdResponse {
-  uint64 id        = 1;
-  string email     = 2;
-  string full_name = 3;
+  uint64 id          = 1;
+  string email       = 2;
+  string full_name   = 3;
+  uint64 identity_id = 4;
 }
 
 message GetEmployeeByIdRequest  { uint64 id = 1; }
@@ -29,6 +30,7 @@ message GetEmployeeByIdResponse {
   bool   need_approval = 6;
   double order_limit   = 7;
   double used_limit    = 8;
+  uint64 identity_id   = 9;
 }
 
 

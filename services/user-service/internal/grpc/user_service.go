@@ -35,9 +35,10 @@ func (s *UserService) GetClientById(ctx context.Context, req *pb.GetClientByIdRe
 		return nil, status.Errorf(codes.NotFound, "client %d not found", req.Id)
 	}
 	return &pb.GetClientByIdResponse{
-		Id:       uint64(client.ClientID),
-		Email:    client.Identity.Email,
-		FullName: client.FirstName + " " + client.LastName,
+		Id:         uint64(client.ClientID),
+		Email:      client.Identity.Email,
+		FullName:   client.FirstName + " " + client.LastName,
+		IdentityId: uint64(client.IdentityID),
 	}, nil
 }
 
@@ -55,6 +56,7 @@ func (s *UserService) GetEmployeeById(ctx context.Context, req *pb.GetEmployeeBy
 		FullName:     employee.FirstName + " " + employee.LastName,
 		IsSupervisor: employee.IsSupervisor(),
 		IsAgent:      employee.IsAgent(),
+		IdentityId:   uint64(employee.IdentityID),
 	}
 
 	if employee.ActuaryInfo != nil {

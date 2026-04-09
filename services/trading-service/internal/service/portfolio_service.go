@@ -1,8 +1,9 @@
 package service
 
 import (
-	"fmt"
 	"context"
+	"fmt"
+	"log"
 
 	pkgerrors "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
@@ -18,6 +19,7 @@ type PortfolioService struct {
 	futuresRepo   repository.FuturesContractRepository
 	forexRepo     repository.ForexRepository
 	bankingClient client.BankingClient
+	userClient    client.UserServiceClient
 }
 
 func NewPortfolioService(
@@ -27,6 +29,7 @@ func NewPortfolioService(
 	futuresRepo repository.FuturesContractRepository,
 	forexRepo repository.ForexRepository,
 	bankingClient client.BankingClient,
+	userClient client.UserServiceClient,
 ) *PortfolioService {
 	return &PortfolioService{
 		ownershipRepo: ownershipRepo,
@@ -35,7 +38,24 @@ func NewPortfolioService(
 		futuresRepo:   futuresRepo,
 		forexRepo:     forexRepo,
 		bankingClient: bankingClient,
+		userClient:    userClient,
 	}
+}
+
+func (s *PortfolioService) GetClientPortfolio(ctx context.Context, clientID uint) ([]dto.PortfolioAssetResponse, error) {
+	resp, err := s.userClient.GetClientById(ctx, uint64(clientID))
+	if err != nil {
+		return nil, pkgerrors.NotFoundErr("client not found")
+	}
+	return s.GetPortfolio(ctx, uint(resp.IdentityId), model.OwnerTypeClient)
+}
+
+func (s *PortfolioService) GetActuaryPortfolio(ctx context.Context, actuaryID uint) ([]dto.PortfolioAssetResponse, error) {
+	resp, err := s.userClient.GetEmployeeById(ctx, uint64(actuaryID))
+	if err != nil {
+		return nil, pkgerrors.NotFoundErr("actuary not found")
+	}
+	return s.GetPortfolio(ctx, uint(resp.IdentityId), model.OwnerTypeActuary)
 }
 
 func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ownerType model.OwnerType) ([]dto.PortfolioAssetResponse, error) {
@@ -53,6 +73,7 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 			assetIDs = append(assetIDs, o.AssetID)
 		}
 	}
+	log.Printf("Found %d active asset ownerships for identity %d (owner type %s)", len(active), identityID, ownerType) // Debug log
 
 	if len(active) == 0 {
 		return []dto.PortfolioAssetResponse{}, nil
