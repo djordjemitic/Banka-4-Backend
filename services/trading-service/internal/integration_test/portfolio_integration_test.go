@@ -136,6 +136,7 @@ func TestExerciseOption_Success(t *testing.T) {
 		ExercisedContracts uint    `json:"exercised_contracts"`
 		PurchasedShares    float64 `json:"purchased_shares"`
 		TotalCost          float64 `json:"total_cost"`
+		RemainingContracts uint    `json:"remaining_contracts"`
 	}](t, rec)
 
 	require.Equal(t, optionListing.AssetID, response.OptionAssetID)
@@ -143,6 +144,7 @@ func TestExerciseOption_Success(t *testing.T) {
 	require.Equal(t, uint(1), response.ExercisedContracts)
 	require.Equal(t, 100.0, response.PurchasedShares)
 	require.Equal(t, 15000.0, response.TotalCost)
+	require.Equal(t, uint(0), response.RemainingContracts)
 
 	var updatedOptionOwnership model.AssetOwnership
 	if err := db.Where("identity_id = ? AND owner_type = ? AND asset_id = ?", 10, model.OwnerTypeActuary, optionListing.AssetID).

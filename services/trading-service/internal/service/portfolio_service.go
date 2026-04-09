@@ -222,12 +222,13 @@ func (s *PortfolioService) ExerciseOption(ctx context.Context, identityID uint, 
 		return nil, pkgerrors.BadRequestErr("option is not in the money")
 	}
 
-	exercisedContracts, err := exercisedContracts(optionOwnership.Amount, option.ContractSize)
+	heldContracts, err := exercisedContracts(optionOwnership.Amount, option.ContractSize)
 	if err != nil {
 		return nil, pkgerrors.BadRequestErr(err.Error())
 	}
+	exercisedContracts := uint(1)
 
-	purchasedShares := optionOwnership.Amount
+	purchasedShares := float64(option.ContractSize)
 	remainingShares := optionOwnership.Amount - purchasedShares
 	totalCost := purchasedShares * option.StrikePrice
 
@@ -295,7 +296,7 @@ func (s *PortfolioService) ExerciseOption(ctx context.Context, identityID uint, 
 		StrikePrice:             option.StrikePrice,
 		TotalCost:               totalCost,
 		RemainingOptionShares:   remainingShares,
-		RemainingContracts:      0,
+		RemainingContracts:      heldContracts - exercisedContracts,
 		SourceAmount:            settlement.GetSourceAmount(),
 		SourceCurrencyCode:      settlement.GetSourceCurrencyCode(),
 		DestinationAmount:       settlement.GetDestinationAmount(),

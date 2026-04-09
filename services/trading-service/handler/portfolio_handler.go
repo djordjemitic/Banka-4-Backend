@@ -148,7 +148,7 @@ func (h *PortfolioHandler) GetActuaryPortfolioProfit(c *gin.Context) {
 
 // ExerciseOption godoc
 // @Summary Exercise an owned option
-// @Description Exercises an actuary-owned in-the-money call option and buys the underlying stock at the strike price.
+// @Description Exercises one contract of an actuary-owned in-the-money call option and buys the underlying stock at the strike price.
 // @Tags portfolio
 // @Security BearerAuth
 // @Accept json

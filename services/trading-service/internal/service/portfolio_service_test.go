@@ -394,9 +394,11 @@ func TestExerciseOption_Success(t *testing.T) {
 	require.NotNil(t, resp)
 	require.Equal(t, uint(20), resp.OptionAssetID)
 	require.Equal(t, uint(10), resp.StockAssetID)
-	require.Equal(t, uint(2), resp.ExercisedContracts)
-	require.Equal(t, 200.0, resp.PurchasedShares)
-	require.Equal(t, 30000.0, resp.TotalCost)
+	require.Equal(t, uint(1), resp.ExercisedContracts)
+	require.Equal(t, 100.0, resp.PurchasedShares)
+	require.Equal(t, 15000.0, resp.TotalCost)
+	require.Equal(t, uint(1), resp.RemainingContracts)
+	require.Equal(t, 100.0, resp.RemainingOptionShares)
 	require.Len(t, ownershipRepo.upserted, 2)
 
 	var stockOwnership *model.AssetOwnership
@@ -411,11 +413,11 @@ func TestExerciseOption_Success(t *testing.T) {
 	}
 
 	require.NotNil(t, stockOwnership)
-	require.Equal(t, 200.0, stockOwnership.Amount)
+	require.Equal(t, 100.0, stockOwnership.Amount)
 	require.Equal(t, 150.0, stockOwnership.AvgBuyPriceRSD)
 
 	require.NotNil(t, optionOwnershipUpdate)
-	require.Equal(t, 0.0, optionOwnershipUpdate.Amount)
+	require.Equal(t, 100.0, optionOwnershipUpdate.Amount)
 }
 
 func TestExerciseOption_ExpiredOption(t *testing.T) {

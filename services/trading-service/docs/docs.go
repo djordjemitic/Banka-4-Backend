@@ -193,7 +193,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Exercises an actuary-owned in-the-money call option and buys the underlying stock at the strike price.",
+                "description": "Exercises one contract of an actuary-owned in-the-money call option and buys the underlying stock at the strike price.",
                 "consumes": [
                     "application/json"
                 ],
