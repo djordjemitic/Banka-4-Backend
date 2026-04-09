@@ -81,9 +81,8 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 
 	// Determine asset types; listing is preloaded on each asset type
 	type assetMeta struct {
-		assetType         dto.AssetType
-		outstandingShares *float64
-		listing           *model.Listing
+		assetType dto.AssetType
+		listing   *model.Listing
 	}
 	meta := make(map[uint]assetMeta)
 
@@ -92,11 +91,9 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 		return nil, pkgerrors.InternalErr(err)
 	}
 	for _, st := range stocks {
-		shares := st.OutstandingShares
 		meta[st.AssetID] = assetMeta{
-			assetType:         dto.AssetTypeStock,
-			outstandingShares: &shares,
-			listing:           st.Listing,
+			assetType: dto.AssetTypeStock,
+			listing:   st.Listing,
 		}
 	}
 
@@ -164,7 +161,7 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 			AvgBuyPriceRSD:    o.AvgBuyPriceRSD,
 			LastModified:      o.UpdatedAt,
 			Profit:            profit,
-			OutstandingShares: m.outstandingShares,
+			PublicAmount: o.PublicAmount,
 		})
 	}
 

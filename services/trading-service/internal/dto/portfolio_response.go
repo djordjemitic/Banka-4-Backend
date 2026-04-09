@@ -19,7 +19,7 @@ type PortfolioAssetResponse struct {
 	AvgBuyPriceRSD    float64   `json:"avgBuyPrice"`
 	LastModified      time.Time `json:"lastModified"`
 	Profit            float64   `json:"profit"`
-	OutstandingShares *float64  `json:"outstandingShares,omitempty"`
+	PublicAmount      float64   `json:"publicAmount"`
 }
 
 type PortfolioProfitResponse struct {
