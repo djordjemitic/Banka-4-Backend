@@ -1,5 +1,14 @@
 definitions:
-  dto.AssetType:
+  errors.AppError:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.AssetType:
     enum:
     - STOCK
     - FUTURES
@@ -11,12 +20,12 @@ definitions:
     - AssetTypeFutures
     - AssetTypeOption
     - AssetTypeForex
-  dto.CollectTaxesResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.CollectTaxesResponse:
     properties:
       message:
         type: string
     type: object
-  dto.CreateOrderRequest:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.CreateOrderRequest:
     properties:
       account_number:
         type: string
@@ -24,7 +33,7 @@ definitions:
         type: boolean
       direction:
         allOf:
-        - $ref: '#/definitions/model.OrderDirection'
+        - $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_model.OrderDirection'
         enum:
         - BUY
         - SELL
@@ -36,7 +45,7 @@ definitions:
         type: boolean
       order_type:
         allOf:
-        - $ref: '#/definitions/model.OrderType'
+        - $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_model.OrderType'
         enum:
         - MARKET
         - LIMIT
@@ -54,7 +63,7 @@ definitions:
     - order_type
     - quantity
     type: object
-  dto.DailyPriceResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.DailyPriceResponse:
     properties:
       ask:
         type: number
@@ -69,7 +78,7 @@ definitions:
       volume:
         type: integer
     type: object
-  dto.ExchangeResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.ExchangeResponse:
     properties:
       acronym:
         type: string
@@ -92,7 +101,7 @@ definitions:
       trading_enabled:
         type: boolean
     type: object
-  dto.ForexDetailedResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.ForexDetailedResponse:
     properties:
       ask:
         type: number
@@ -106,7 +115,7 @@ definitions:
         type: string
       history:
         items:
-          $ref: '#/definitions/dto.DailyPriceResponse'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.DailyPriceResponse'
         type: array
       initial_margin_cost:
         type: number
@@ -129,7 +138,7 @@ definitions:
       volume:
         type: integer
     type: object
-  dto.ForexResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.ForexResponse:
     properties:
       ask:
         type: number
@@ -162,7 +171,7 @@ definitions:
       volume:
         type: integer
     type: object
-  dto.FutureDetailedResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.FutureDetailedResponse:
     properties:
       ask:
         type: number
@@ -178,7 +187,7 @@ definitions:
         type: string
       history:
         items:
-          $ref: '#/definitions/dto.DailyPriceResponse'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.DailyPriceResponse'
         type: array
       initial_margin_cost:
         type: number
@@ -197,7 +206,7 @@ definitions:
       volume:
         type: integer
     type: object
-  dto.FuturesResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.FuturesResponse:
     properties:
       ask:
         type: number
@@ -228,11 +237,11 @@ definitions:
       volume:
         type: integer
     type: object
-  dto.ListOrdersResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.ListOrdersResponse:
     properties:
       data:
         items:
-          $ref: '#/definitions/dto.OrderSummaryResponse'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OrderSummaryResponse'
         type: array
       page:
         type: integer
@@ -241,11 +250,11 @@ definitions:
       total:
         type: integer
     type: object
-  dto.ListTaxUsersResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.ListTaxUsersResponse:
     properties:
       data:
         items:
-          $ref: '#/definitions/dto.UserTaxEntry'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.UserTaxEntry'
         type: array
       page:
         type: integer
@@ -256,7 +265,7 @@ definitions:
       totalPages:
         type: integer
     type: object
-  dto.OptionDetailedResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OptionDetailedResponse:
     properties:
       ask:
         type: number
@@ -268,7 +277,7 @@ definitions:
         type: string
       history:
         items:
-          $ref: '#/definitions/dto.DailyPriceResponse'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.DailyPriceResponse'
         type: array
       implied_volatility:
         type: number
@@ -295,7 +304,7 @@ definitions:
       volume:
         type: integer
     type: object
-  dto.OptionResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OptionResponse:
     properties:
       ask:
         type: number
@@ -330,7 +339,7 @@ definitions:
       volume:
         type: integer
     type: object
-  dto.OrderResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OrderResponse:
     properties:
       account_number:
         type: string
@@ -345,7 +354,7 @@ definitions:
       created_at:
         type: string
       direction:
-        $ref: '#/definitions/model.OrderDirection'
+        $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_model.OrderDirection'
       is_done:
         type: boolean
       limit_value:
@@ -359,7 +368,7 @@ definitions:
       order_id:
         type: integer
       order_type:
-        $ref: '#/definitions/model.OrderType'
+        $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_model.OrderType'
       price_per_unit:
         type: number
       quantity:
@@ -367,7 +376,7 @@ definitions:
       remaining_portions:
         type: integer
       status:
-        $ref: '#/definitions/model.OrderStatus'
+        $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_model.OrderStatus'
       stop_value:
         type: number
       ticker:
@@ -377,12 +386,12 @@ definitions:
       user_id:
         type: integer
     type: object
-  dto.OrderSummaryResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OrderSummaryResponse:
     properties:
       contract_size:
         type: number
       direction:
-        $ref: '#/definitions/model.OrderDirection'
+        $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_model.OrderDirection'
       listing_name:
         type: string
       order_id:
@@ -394,15 +403,15 @@ definitions:
       remaining_portions:
         type: integer
       status:
-        $ref: '#/definitions/model.OrderStatus'
+        $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_model.OrderStatus'
       user_id:
         type: integer
     type: object
-  dto.PaginatedForexResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PaginatedForexResponse:
     properties:
       data:
         items:
-          $ref: '#/definitions/dto.ForexResponse'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.ForexResponse'
         type: array
       page:
         type: integer
@@ -411,11 +420,11 @@ definitions:
       total:
         type: integer
     type: object
-  dto.PaginatedFuturesResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PaginatedFuturesResponse:
     properties:
       data:
         items:
-          $ref: '#/definitions/dto.FuturesResponse'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.FuturesResponse'
         type: array
       page:
         type: integer
@@ -424,11 +433,11 @@ definitions:
       total:
         type: integer
     type: object
-  dto.PaginatedOptionResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PaginatedOptionResponse:
     properties:
       data:
         items:
-          $ref: '#/definitions/dto.OptionResponse'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OptionResponse'
         type: array
       page:
         type: integer
@@ -437,11 +446,11 @@ definitions:
       total:
         type: integer
     type: object
-  dto.PaginatedStockResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PaginatedStockResponse:
     properties:
       data:
         items:
-          $ref: '#/definitions/dto.StockResponse'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.StockResponse'
         type: array
       page:
         type: integer
@@ -450,7 +459,7 @@ definitions:
       total:
         type: integer
     type: object
-  dto.PortfolioAssetResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PortfolioAssetResponse:
     properties:
       amount:
         type: number
@@ -467,14 +476,14 @@ definitions:
       ticker:
         type: string
       type:
-        $ref: '#/definitions/dto.AssetType'
+        $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.AssetType'
     type: object
-  dto.PortfolioProfitResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PortfolioProfitResponse:
     properties:
       totalProfit:
         type: number
     type: object
-  dto.StockDetailedResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.StockDetailedResponse:
     properties:
       ask:
         type: number
@@ -488,7 +497,7 @@ definitions:
         type: string
       history:
         items:
-          $ref: '#/definitions/dto.DailyPriceResponse'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.DailyPriceResponse'
         type: array
       initial_margin_cost:
         type: number
@@ -500,7 +509,7 @@ definitions:
         type: string
       options:
         items:
-          $ref: '#/definitions/dto.OptionResponse'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OptionResponse'
         type: array
       outstanding_shares:
         type: number
@@ -511,7 +520,7 @@ definitions:
       volume:
         type: integer
     type: object
-  dto.StockResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.StockResponse:
     properties:
       ask:
         type: number
@@ -540,12 +549,12 @@ definitions:
       volume:
         type: integer
     type: object
-  dto.TaxInfoResponse:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.TaxInfoResponse:
     properties:
       totalTax:
         type: number
     type: object
-  dto.UserTaxEntry:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.UserTaxEntry:
     properties:
       email:
         type: string
@@ -560,16 +569,7 @@ definitions:
       userType:
         type: string
     type: object
-  errors.AppError:
-    properties:
-      message:
-        type: string
-      status:
-        type: string
-      timestamp:
-        type: string
-    type: object
-  model.OrderDirection:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_model.OrderDirection:
     enum:
     - BUY
     - SELL
@@ -577,7 +577,7 @@ definitions:
     x-enum-varnames:
     - OrderDirectionBuy
     - OrderDirectionSell
-  model.OrderStatus:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_model.OrderStatus:
     enum:
     - PENDING
     - APPROVED
@@ -587,7 +587,7 @@ definitions:
     - OrderStatusPending
     - OrderStatusApproved
     - OrderStatusDeclined
-  model.OrderType:
+  github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_model.OrderType:
     enum:
     - MARKET
     - LIMIT
@@ -601,10 +601,6 @@ definitions:
     - OrderTypeStopLimit
 info:
   contact: {}
-  description: API for managing portfolios, executing trades, and handling financial
-    market operations.
-  title: Trading Service API
-  version: "1.0"
 paths:
   /api/actuary/{actId}/accumulated-tax:
     get:
@@ -622,7 +618,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.TaxInfoResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.TaxInfoResponse'
         "400":
           description: Bad Request
           schema:
@@ -658,7 +654,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/dto.PortfolioAssetResponse'
+              $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PortfolioAssetResponse'
             type: array
         "400":
           description: Bad Request
@@ -697,7 +693,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PortfolioProfitResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PortfolioProfitResponse'
         "400":
           description: Bad Request
           schema:
@@ -735,7 +731,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.TaxInfoResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.TaxInfoResponse'
         "400":
           description: Bad Request
           schema:
@@ -771,7 +767,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/dto.PortfolioAssetResponse'
+              $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PortfolioAssetResponse'
             type: array
         "400":
           description: Bad Request
@@ -810,7 +806,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PortfolioProfitResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PortfolioProfitResponse'
         "400":
           description: Bad Request
           schema:
@@ -883,7 +879,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.ExchangeResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.ExchangeResponse'
         "404":
           description: Not Found
           schema:
@@ -947,7 +943,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PaginatedForexResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PaginatedForexResponse'
         "400":
           description: Bad Request
           schema:
@@ -967,13 +963,17 @@ paths:
         name: listingId
         required: true
         type: integer
+      - description: History range in minutes (e.g. 1440 for 1 day)
+        in: query
+        name: minutes
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.ForexDetailedResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.ForexDetailedResponse'
         "400":
           description: Bad Request
           schema:
@@ -1060,7 +1060,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PaginatedFuturesResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PaginatedFuturesResponse'
         "400":
           description: Bad Request
           schema:
@@ -1080,13 +1080,17 @@ paths:
         name: listingId
         required: true
         type: integer
+      - description: History range in minutes (e.g. 1440 for 1 day)
+        in: query
+        name: minutes
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.FutureDetailedResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.FutureDetailedResponse'
         "400":
           description: Bad Request
           schema:
@@ -1173,7 +1177,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PaginatedOptionResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PaginatedOptionResponse'
         "400":
           description: Bad Request
           schema:
@@ -1193,13 +1197,17 @@ paths:
         name: listingId
         required: true
         type: integer
+      - description: History range in minutes (e.g. 1440 for 1 day)
+        in: query
+        name: minutes
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.OptionDetailedResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OptionDetailedResponse'
         "400":
           description: Bad Request
           schema:
@@ -1217,7 +1225,7 @@ paths:
       summary: Get option details
       tags:
       - listings
-  /api/listings/stock/listingId:
+  /api/listings/stock/{listingId}:
     get:
       consumes:
       - application/json
@@ -1228,13 +1236,17 @@ paths:
         name: listingId
         required: true
         type: integer
+      - description: History range in minutes (e.g. 1440 for 1 day)
+        in: query
+        name: minutes
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.StockDetailedResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.StockDetailedResponse'
         "400":
           description: Bad Request
           schema:
@@ -1317,7 +1329,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PaginatedStockResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.PaginatedStockResponse'
         "400":
           description: Bad Request
           schema:
@@ -1356,7 +1368,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.ListOrdersResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.ListOrdersResponse'
         "400":
           description: Bad Request
           schema:
@@ -1378,14 +1390,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.CreateOrderRequest'
+          $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.CreateOrderRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.OrderResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OrderResponse'
         "400":
           description: Bad Request
           schema:
@@ -1412,7 +1424,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.OrderResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OrderResponse'
         "400":
           description: Bad Request
           schema:
@@ -1439,7 +1451,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.OrderResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OrderResponse'
         "400":
           description: Bad Request
           schema:
@@ -1466,7 +1478,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.OrderResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.OrderResponse'
         "400":
           description: Bad Request
           schema:
@@ -1488,7 +1500,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.CollectTaxesResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.CollectTaxesResponse'
         "401":
           description: Unauthorized
           schema:
@@ -1536,7 +1548,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.ListTaxUsersResponse'
+            $ref: '#/definitions/github_com_RAF-SI-2025_Banka-4-Backend_services_trading-service_internal_dto.ListTaxUsersResponse'
         "400":
           description: Bad Request
           schema:
@@ -1554,10 +1566,4 @@ paths:
       summary: List users with tax information
       tags:
       - tax
-securityDefinitions:
-  BearerAuth:
-    description: JWT Authorization header using the Bearer scheme.
-    in: header
-    name: Authorization
-    type: apiKey
 swagger: "2.0"
