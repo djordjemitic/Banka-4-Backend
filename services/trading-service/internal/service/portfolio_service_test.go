@@ -403,6 +403,7 @@ func TestExerciseOption_Success(t *testing.T) {
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
 		bankingClient,
+		&fakeUserServiceClient{},
 	)
 	svc.now = func() time.Time { return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC) }
 
@@ -461,6 +462,7 @@ func TestExerciseOption_ExpiredOption(t *testing.T) {
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
+		&fakeUserServiceClient{},
 	)
 	svc.now = func() time.Time { return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC) }
 
@@ -493,6 +495,7 @@ func TestExerciseOption_NotInTheMoney(t *testing.T) {
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
+		&fakeUserServiceClient{},
 	)
 
 	_, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeActuary, 20, "444000100000000001")
@@ -524,6 +527,7 @@ func TestExerciseOption_PutOptionRejected(t *testing.T) {
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
+		&fakeUserServiceClient{},
 	)
 
 	_, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeActuary, 20, "444000100000000001")

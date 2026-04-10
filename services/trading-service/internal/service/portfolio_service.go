@@ -8,7 +8,6 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"log"
 
 	pkgerrors "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	pb "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
