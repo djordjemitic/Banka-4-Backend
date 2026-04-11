@@ -182,8 +182,10 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 	initialPricePerUnit := calculateInitialPricePerUnit(req, listing)
 	session := s.resolveExchangeSession(exchange)
 	ownerType := model.OwnerTypeClient
+	userID := authCtx.ClientID
 	if authCtx.IdentityType == auth.IdentityEmployee {
 		ownerType = model.OwnerTypeActuary
+		userID = authCtx.EmployeeID
 	}
 
 	if req.Direction == model.OrderDirectionSell && listing.Asset != nil {
@@ -193,7 +195,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 	}
 
 	order := model.Order{
-		UserID:            authCtx.IdentityID,
+		UserID:            *userID,
 		AccountNumber:     req.AccountNumber,
 		ListingID:         req.ListingID,
 		Listing:           *listing,
@@ -336,7 +338,13 @@ func (s *OrderService) CancelOrder(ctx context.Context, orderID uint) (*model.Or
 		return nil, errors.UnauthorizedErr("not authenticated")
 	}
 
-	isOwner := order.UserID == authCtx.IdentityID
+	isOwner := false
+	if authCtx.IdentityType == auth.IdentityEmployee {
+		isOwner = order.UserID == *authCtx.EmployeeID
+	} else {
+		isOwner = order.UserID == *authCtx.ClientID
+	}
+
 	isSupervisor, err := s.checkSupervisor(ctx)
 	if err != nil {
 		return nil, err
@@ -508,10 +516,16 @@ func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Or
 		return nil
 	}
 
+	resp, err := s.userClient.GetIdentityByUserId(ctx, uint64(order.UserID), string(order.OwnerType))
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+	identityID := uint(resp.IdentityId)
+
 	fillAmount := float64(fillQty) * order.ContractSize
 	assetID := order.Listing.AssetID
 
-	existing, err := s.assetOwnershipRepo.FindByIdentity(ctx, order.UserID, order.OwnerType)
+	existing, err := s.assetOwnershipRepo.FindByIdentity(ctx, identityID, order.OwnerType)
 	if err != nil {
 		return err
 	}
@@ -526,7 +540,7 @@ func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Or
 
 	if ownership == nil {
 		ownership = &model.AssetOwnership{
-			IdentityID: order.UserID,
+			IdentityID: identityID,
 			OwnerType:  order.OwnerType,
 			AssetID:    assetID,
 		}
@@ -1038,8 +1052,14 @@ func (s *OrderService) getOwnershipForOrder(ctx context.Context, order *model.Or
 	if order.Listing.Asset == nil {
 		return nil, nil
 	}
+	
+	resp, err := s.userClient.GetIdentityByUserId(ctx, uint64(order.UserID), string(order.OwnerType))
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	identityID := uint(resp.IdentityId)
 
-	existing, err := s.assetOwnershipRepo.FindByIdentity(ctx, order.UserID, order.OwnerType)
+	existing, err := s.assetOwnershipRepo.FindByIdentity(ctx, identityID, order.OwnerType)
 	if err != nil {
 		return nil, err
 	}

@@ -5,7 +5,11 @@ import "github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal
 type OrderSummaryResponse struct {
 	OrderID           uint                 `json:"order_id"`
 	UserID            uint                 `json:"user_id"`
+	OwnerType         model.OwnerType      `json:"owner_type"`
+	AccountNumber     string               `json:"account_number"`
 	ListingName       string               `json:"listing_name"`
+	AssetType         model.AssetType      `json:"asset_type"`
+	OrderType         model.OrderType      `json:"order_type"`
 	Quantity          uint                 `json:"quantity"`
 	ContractSize      float64              `json:"contract_size"`
 	PricePerUnit      *float64             `json:"price_per_unit"`
@@ -18,7 +22,11 @@ func ToOrderSummaryResponse(o model.Order) OrderSummaryResponse {
 	return OrderSummaryResponse{
 		OrderID:           o.OrderID,
 		UserID:            o.UserID,
+		OwnerType:         o.OwnerType,
+		AccountNumber:     o.AccountNumber,
 		ListingName:       listingAssetName(o.Listing),
+		AssetType:         listingAssetType(o.Listing),
+		OrderType:         o.OrderType,
 		Quantity:          o.Quantity,
 		ContractSize:      o.ContractSize,
 		PricePerUnit:      o.PricePerUnit,

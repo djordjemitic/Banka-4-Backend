@@ -2184,6 +2184,9 @@ const docTemplate = `{
                 "order_type": {
                     "$ref": "#/definitions/model.OrderType"
                 },
+                "owner_type": {
+                    "$ref": "#/definitions/model.OwnerType"
+                },
                 "price_per_unit": {
                     "type": "number"
                 },
@@ -2213,6 +2216,12 @@ const docTemplate = `{
         "dto.OrderSummaryResponse": {
             "type": "object",
             "properties": {
+                "account_number": {
+                    "type": "string"
+                },
+                "asset_type": {
+                    "$ref": "#/definitions/model.AssetType"
+                },
                 "contract_size": {
                     "type": "number"
                 },
@@ -2224,6 +2233,12 @@ const docTemplate = `{
                 },
                 "order_id": {
                     "type": "integer"
+                },
+                "order_type": {
+                    "$ref": "#/definitions/model.OrderType"
+                },
+                "owner_type": {
+                    "$ref": "#/definitions/model.OwnerType"
                 },
                 "price_per_unit": {
                     "type": "number"
@@ -2507,6 +2522,21 @@ const docTemplate = `{
                 }
             }
         },
+        "model.AssetType": {
+            "type": "string",
+            "enum": [
+                "stock",
+                "option",
+                "future",
+                "forexPair"
+            ],
+            "x-enum-varnames": [
+                "AssetTypeStock",
+                "AssetTypeOption",
+                "AssetTypeFuture",
+                "AssetTypeForexPair"
+            ]
+        },
         "model.OrderDirection": {
             "type": "string",
             "enum": [
@@ -2544,6 +2574,17 @@ const docTemplate = `{
                 "OrderTypeLimit",
                 "OrderTypeStop",
                 "OrderTypeStopLimit"
+            ]
+        },
+        "model.OwnerType": {
+            "type": "string",
+            "enum": [
+                "CLIENT",
+                "ACTUARY"
+            ],
+            "x-enum-varnames": [
+                "OwnerTypeClient",
+                "OwnerTypeActuary"
             ]
         }
     },

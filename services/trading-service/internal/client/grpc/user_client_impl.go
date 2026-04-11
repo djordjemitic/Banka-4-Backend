@@ -51,3 +51,13 @@ func (c *UserServiceClient) GetAllActuaries(ctx context.Context, page, pageSize 
 	}
 	return resp, nil
 }
+
+func (c *UserServiceClient) GetIdentityByUserId(ctx context.Context, userID uint64, userType string) (*pb.GetIdentityByUserIdResponse, error) {
+	resp, err := c.stub.GetIdentityByUserId(ctx, &pb.GetIdentityByUserIdRequest {
+		UserId: userID, UserType: userType,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("user client GetIdentityByUserId: %w", err)
+	}
+	return resp, nil
+}

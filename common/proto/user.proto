@@ -5,10 +5,11 @@ package user.v1;
 option go_package = "common/pkg/pb;pb";
 
 service UserService {
-  rpc GetClientById(GetClientByIdRequest)       returns (GetClientByIdResponse);
-  rpc GetEmployeeById(GetEmployeeByIdRequest)   returns (GetEmployeeByIdResponse);
-  rpc GetAllClients(GetAllClientsRequest)       returns (GetAllClientsResponse);
-  rpc GetAllActuaries(GetAllActuariesRequest)   returns (GetAllActuariesResponse);
+  rpc GetClientById(GetClientByIdRequest)             returns (GetClientByIdResponse);
+  rpc GetEmployeeById(GetEmployeeByIdRequest)         returns (GetEmployeeByIdResponse);
+  rpc GetAllClients(GetAllClientsRequest)             returns (GetAllClientsResponse);
+  rpc GetAllActuaries(GetAllActuariesRequest)         returns (GetAllActuariesResponse);
+  rpc GetIdentityByUserId(GetIdentityByUserIdRequest) returns (GetIdentityByUserIdResponse);
 }
 
 
@@ -79,4 +80,13 @@ message GetAllActuariesResponse {
   int32                    page       = 3;
   int32                    page_size  = 4;
   int32                    total_pages = 5;
+}
+
+message GetIdentityByUserIdRequest {
+  uint64 user_id   = 1;
+  string user_type = 2;
+}
+
+message GetIdentityByUserIdResponse {
+  uint64 identity_id = 1;
 }

@@ -95,6 +95,8 @@ func TestMain(m *testing.M) {
 type fakeUserClient struct {
 	supervisorIDs map[uint64]bool
 	agentIDs      map[uint64]bool
+	identityResp  *pb.GetIdentityByUserIdResponse
+	identityErr   error
 }
 
 func (f *fakeUserClient) GetClientById(_ context.Context, id uint64) (*pb.GetClientByIdResponse, error) {
@@ -139,6 +141,10 @@ func (f *fakeUserClient) GetAllActuaries(_ context.Context, _, _ int32, _, _ str
 		},
 		Total: 1,
 	}, nil
+}
+
+func (c *fakeUserClient) GetIdentityByUserId(_ context.Context, _ uint64, _ string) (*pb.GetIdentityByUserIdResponse, error) {
+	return c.identityResp, c.identityErr
 }
 
 type fakeTaxRecorder struct{}

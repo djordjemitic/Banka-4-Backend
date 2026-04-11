@@ -394,6 +394,8 @@ definitions:
         type: integer
       order_type:
         $ref: '#/definitions/model.OrderType'
+      owner_type:
+        $ref: '#/definitions/model.OwnerType'
       price_per_unit:
         type: number
       quantity:
@@ -413,6 +415,10 @@ definitions:
     type: object
   dto.OrderSummaryResponse:
     properties:
+      account_number:
+        type: string
+      asset_type:
+        $ref: '#/definitions/model.AssetType'
       contract_size:
         type: number
       direction:
@@ -421,6 +427,10 @@ definitions:
         type: string
       order_id:
         type: integer
+      order_type:
+        $ref: '#/definitions/model.OrderType'
+      owner_type:
+        $ref: '#/definitions/model.OwnerType'
       price_per_unit:
         type: number
       quantity:
@@ -605,6 +615,18 @@ definitions:
       timestamp:
         type: string
     type: object
+  model.AssetType:
+    enum:
+    - stock
+    - option
+    - future
+    - forexPair
+    type: string
+    x-enum-varnames:
+    - AssetTypeStock
+    - AssetTypeOption
+    - AssetTypeFuture
+    - AssetTypeForexPair
   model.OrderDirection:
     enum:
     - BUY
@@ -635,6 +657,14 @@ definitions:
     - OrderTypeLimit
     - OrderTypeStop
     - OrderTypeStopLimit
+  model.OwnerType:
+    enum:
+    - CLIENT
+    - ACTUARY
+    type: string
+    x-enum-varnames:
+    - OwnerTypeClient
+    - OwnerTypeActuary
 info:
   contact: {}
   description: API for managing portfolios, executing trades, and handling financial

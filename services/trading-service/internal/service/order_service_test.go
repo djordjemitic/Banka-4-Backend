@@ -170,6 +170,8 @@ type fakeUserServiceClient struct {
 	employeeErr  error
 	clientResp   *pb.GetClientByIdResponse
 	clientErr    error
+	identityResp *pb.GetIdentityByUserIdResponse
+	identityErr  error
 }
 
 func (c *fakeUserServiceClient) GetEmployeeById(_ context.Context, _ uint64) (*pb.GetEmployeeByIdResponse, error) {
@@ -186,6 +188,10 @@ func (c *fakeUserServiceClient) GetAllClients(_ context.Context, _, _ int32, _, 
 
 func (c *fakeUserServiceClient) GetAllActuaries(_ context.Context, _, _ int32, _, _ string) (*pb.GetAllActuariesResponse, error) {
 	return nil, nil
+}
+
+func (c *fakeUserServiceClient) GetIdentityByUserId(_ context.Context, _ uint64, _ string) (*pb.GetIdentityByUserIdResponse, error) {
+	return c.identityResp, c.identityErr
 }
 
 // ── Fake Banking Client (order-specific) ──────────────────────────
@@ -348,7 +354,7 @@ func TestGetOrders_Success(t *testing.T) {
 		{OrderID: 2, UserID: 2, Status: model.OrderStatusPending},
 	}
 	repo := &fakeOrderRepo{orders: orders, total: 2}
-	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	result, total, err := svc.GetOrders(context.Background(), dto.ListOrdersQuery{Page: 0, PageSize: 10})
 	require.NoError(t, err)
@@ -358,7 +364,7 @@ func TestGetOrders_Success(t *testing.T) {
 
 func TestGetOrders_Empty(t *testing.T) {
 	repo := &fakeOrderRepo{orders: []model.Order{}, total: 0}
-	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	result, total, err := svc.GetOrders(context.Background(), dto.ListOrdersQuery{Page: 0, PageSize: 10})
 	require.NoError(t, err)
@@ -368,7 +374,7 @@ func TestGetOrders_Empty(t *testing.T) {
 
 func TestGetOrders_RepoError(t *testing.T) {
 	repo := &fakeOrderRepo{findErr: errors.New("db error")}
-	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	result, total, err := svc.GetOrders(context.Background(), dto.ListOrdersQuery{})
 	require.Error(t, err)
@@ -387,7 +393,7 @@ func TestCreateOrder_MarketBuy_ClientAutoApproved(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{exchange: exchange},
 		&fakeListingRepo{listing: listing},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)},
 		&fakeTaxRecorder{},
 	)
@@ -422,7 +428,7 @@ func TestCreateOrder_LimitSell_Success(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{exchange: exchange},
 		&fakeListingRepo{listing: listing},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)},
 		&fakeTaxRecorder{},
 	)
@@ -459,7 +465,7 @@ func TestCreateOrder_ClientMargin_WithActiveLoanAndFunds_Success(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{exchange: exchange},
 		&fakeListingRepo{listing: listing},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10), hasActiveLoan: true},
 		&fakeTaxRecorder{},
 	)
@@ -490,7 +496,7 @@ func TestCreateOrder_ClientMargin_WithoutActiveLoan_Forbidden(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{exchange: exchange},
 		&fakeListingRepo{listing: listing},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10), hasActiveLoan: false},
 		&fakeTaxRecorder{},
 	)
@@ -520,7 +526,7 @@ func TestCreateOrder_EmployeeMargin_WithoutPermission_Forbidden(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{exchange: exchange},
 		&fakeListingRepo{listing: listing},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{
 			AccountType:      "Bank",
 			CurrencyCode:     "USD",
@@ -560,7 +566,7 @@ func TestCreateOrder_Margin_WithInsufficientFunds_Forbidden(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{exchange: exchange},
 		&fakeListingRepo{listing: listing},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10), hasActiveLoan: true},
 		&fakeTaxRecorder{},
 	)
@@ -572,7 +578,7 @@ func TestCreateOrder_Margin_WithInsufficientFunds_Forbidden(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{exchange: exchange},
 		&fakeListingRepo{listing: listing},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: accountResp, hasActiveLoan: true},
 		&fakeTaxRecorder{},
 	)
@@ -599,7 +605,7 @@ func TestCreateOrder_MissingAuthContext(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -624,7 +630,7 @@ func TestCreateOrder_ListingNotFound(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{listing: nil},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)},
 		&fakeTaxRecorder{},
 	)
@@ -650,7 +656,7 @@ func TestCreateOrder_AccountValidationFailure_NotFound(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountErr: status.Error(codes.NotFound, "account not found")},
 		&fakeTaxRecorder{},
 	)
@@ -676,7 +682,7 @@ func TestCreateOrder_AccountDoesNotBelongToClient(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{ClientId: 999, AccountType: "Current"}},
 		&fakeTaxRecorder{},
 	)
@@ -712,6 +718,9 @@ func TestCreateOrder_EmployeeAgent_SufficientLimit_Approved(t *testing.T) {
 				NeedApproval: false,
 				OrderLimit:   1000000,
 				UsedLimit:    0,
+			},
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
 			},
 		},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
@@ -788,6 +797,9 @@ func TestCreateOrder_EmployeeNeedsApproval_Pending(t *testing.T) {
 				OrderLimit:   1000000,
 				UsedLimit:    0,
 			},
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
 		&fakeTaxRecorder{},
@@ -822,6 +834,9 @@ func TestCreateOrder_EmployeeNotAgent_Pending(t *testing.T) {
 				Id:      5,
 				IsAgent: false,
 			},
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
 		&fakeTaxRecorder{},
@@ -848,7 +863,7 @@ func TestCreateOrder_LimitOrder_MissingLimitValue(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -875,7 +890,7 @@ func TestCreateOrder_StopOrder_MissingStopValue(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -902,7 +917,7 @@ func TestCreateOrder_EmployeeMustUseBankAccount(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Current"}},
 		&fakeTaxRecorder{},
 	)
@@ -931,7 +946,7 @@ func TestCreateOrder_RepoCreateError(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{exchange: exchange},
 		&fakeListingRepo{listing: listing},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)},
 		&fakeTaxRecorder{},
 	)
@@ -964,7 +979,7 @@ func TestApproveOrder_Success(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{exchange: defaultExchange()},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -985,7 +1000,7 @@ func TestApproveOrder_NotFound(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1008,7 +1023,7 @@ func TestApproveOrder_NotPending(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1031,7 +1046,7 @@ func TestApproveOrder_MissingAuth(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1055,7 +1070,7 @@ func TestDeclineOrder_Success(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1076,7 +1091,7 @@ func TestDeclineOrder_NotFound(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1099,7 +1114,7 @@ func TestDeclineOrder_NotPending(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1122,7 +1137,7 @@ func TestDeclineOrder_MissingAuth(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1138,7 +1153,7 @@ func TestDeclineOrder_MissingAuth(t *testing.T) {
 func TestCancelOrder_OwnerCancelsOwn(t *testing.T) {
 	pendingOrder := &model.Order{
 		OrderID: 1,
-		UserID:  1,
+		UserID:  10,
 		Status:  model.OrderStatusPending,
 		IsDone:  false,
 	}
@@ -1148,7 +1163,11 @@ func TestCancelOrder_OwnerCancelsOwn(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 1,
+			},
+		},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1179,6 +1198,9 @@ func TestCancelOrder_SupervisorCancelsOther(t *testing.T) {
 			employeeResp: &pb.GetEmployeeByIdResponse{
 				Id:           7,
 				IsSupervisor: true,
+			},
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
 			},
 		},
 		&fakeOrderBankingClient{},
@@ -1211,6 +1233,9 @@ func TestCancelOrder_NonOwnerNonSupervisor_Forbidden(t *testing.T) {
 				Id:           5,
 				IsSupervisor: false,
 			},
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
@@ -1226,7 +1251,7 @@ func TestCancelOrder_NonOwnerNonSupervisor_Forbidden(t *testing.T) {
 func TestCancelOrder_AlreadyDone(t *testing.T) {
 	doneOrder := &model.Order{
 		OrderID: 1,
-		UserID:  1,
+		UserID:  10,
 		Status:  model.OrderStatusApproved,
 		IsDone:  true,
 	}
@@ -1236,7 +1261,7 @@ func TestCancelOrder_AlreadyDone(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 1}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1254,7 +1279,7 @@ func TestCancelOrder_NotFound(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1269,7 +1294,7 @@ func TestCancelOrder_NotFound(t *testing.T) {
 func TestCancelOrder_DeclinedStatus_BadRequest(t *testing.T) {
 	declinedOrder := &model.Order{
 		OrderID: 1,
-		UserID:  1,
+		UserID:  10,
 		Status:  model.OrderStatusDeclined,
 		IsDone:  false,
 	}
@@ -1279,7 +1304,7 @@ func TestCancelOrder_DeclinedStatus_BadRequest(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 1}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1304,7 +1329,7 @@ func TestCancelOrder_MissingAuth(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{},
 		&fakeTaxRecorder{},
 	)
@@ -1444,7 +1469,7 @@ func TestIsWeekend(t *testing.T) {
 
 func TestFailOrder_SetsFieldsAndSaves(t *testing.T) {
 	repo := &fakeOrderRepo{}
-	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	nextExec := time.Date(2025, 6, 5, 12, 0, 0, 0, time.UTC)
 	order := &model.Order{
@@ -1464,7 +1489,7 @@ func TestFailOrder_SetsFieldsAndSaves(t *testing.T) {
 
 func TestFailOrder_RepoSaveError(t *testing.T) {
 	repo := &fakeOrderRepo{saveErr: errors.New("save failed")}
-	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{OrderID: 1, Status: model.OrderStatusApproved}
 	err := svc.failOrder(context.Background(), order, model.OrderStatusDeclined)
@@ -1474,28 +1499,28 @@ func TestFailOrder_RepoSaveError(t *testing.T) {
 // ── resolveFillQuantity Tests ────────────────────────────────────
 
 func TestResolveFillQuantity_RemainingZero(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 10, FilledQty: 10}
 	require.Equal(t, uint(0), svc.resolveFillQuantity(order))
 }
 
 func TestResolveFillQuantity_AllOrNone(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 10, FilledQty: 3, AllOrNone: true}
 	require.Equal(t, uint(7), svc.resolveFillQuantity(order))
 }
 
 func TestResolveFillQuantity_RemainingOne(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 5, FilledQty: 4, AllOrNone: false}
 	require.Equal(t, uint(1), svc.resolveFillQuantity(order))
 }
 
 func TestResolveFillQuantity_RandomInRange(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 100, FilledQty: 0, AllOrNone: false}
 
@@ -1509,7 +1534,7 @@ func TestResolveFillQuantity_RandomInRange(t *testing.T) {
 // ── resolveExchangeSession Tests ─────────────────────────────────
 
 func TestResolveExchangeSession_NilExchange(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	session := svc.resolveExchangeSession(nil)
 	require.True(t, session.IsOpen)
@@ -1517,7 +1542,7 @@ func TestResolveExchangeSession_NilExchange(t *testing.T) {
 }
 
 func TestResolveExchangeSession_TradingDisabled(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	exchange := &model.Exchange{
 		TradingEnabled: false,
@@ -1531,7 +1556,7 @@ func TestResolveExchangeSession_TradingDisabled(t *testing.T) {
 }
 
 func TestResolveExchangeSession_DuringOpenHours(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	exchange := &model.Exchange{
 		TradingEnabled: true,
@@ -1545,7 +1570,7 @@ func TestResolveExchangeSession_DuringOpenHours(t *testing.T) {
 }
 
 func TestResolveExchangeSession_DuringClosedHours_BeforeOpen(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	exchange := &model.Exchange{
 		TradingEnabled: true,
@@ -1560,7 +1585,7 @@ func TestResolveExchangeSession_DuringClosedHours_BeforeOpen(t *testing.T) {
 }
 
 func TestResolveExchangeSession_DuringClosedHours_AfterClose(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	exchange := &model.Exchange{
 		TradingEnabled: true,
@@ -1579,7 +1604,7 @@ func TestResolveExchangeSession_DuringClosedHours_AfterClose(t *testing.T) {
 func TestProcessOrder_ListingNotFound_FailsOrder(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	listingRepo := &fakeListingRepo{listing: nil}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:   1,
@@ -1599,7 +1624,7 @@ func TestProcessOrder_ExchangeNotFound_FailsOrder(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	listingRepo := &fakeListingRepo{listing: listing}
 	exchangeRepo := &fakeExchangeRepo{exchange: nil}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:   1,
@@ -1615,7 +1640,7 @@ func TestProcessOrder_ExchangeNotFound_FailsOrder(t *testing.T) {
 
 func TestProcessOrder_ListingRepoError(t *testing.T) {
 	listingRepo := &fakeListingRepo{findByIDErr: errors.New("db error")}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{OrderID: 1, ListingID: 1}
 	err := svc.processOrder(context.Background(), order)
@@ -1626,7 +1651,7 @@ func TestProcessOrder_ExchangeRepoError(t *testing.T) {
 	listing := defaultListing()
 	listingRepo := &fakeListingRepo{listing: listing}
 	exchangeRepo := &fakeExchangeRepo{findErr: errors.New("db error")}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{OrderID: 1, ListingID: 1}
 	err := svc.processOrder(context.Background(), order)
@@ -1648,7 +1673,7 @@ func TestProcessOrder_MarketOrder_FullFill(t *testing.T) {
 			DestinationCurrencyCode: "USD",
 		},
 	}
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient, &fakeTaxRecorder{})
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, bankingClient, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:          1,
@@ -1676,7 +1701,7 @@ func TestProcessOrder_MarketOrder_FullFill(t *testing.T) {
 
 func TestProcessDueOrders_NoReadyOrders(t *testing.T) {
 	orderRepo := &fakeOrderRepo{readyOrders: []model.Order{}}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	err := svc.processDueOrders(context.Background())
 	require.NoError(t, err)
@@ -1684,7 +1709,7 @@ func TestProcessDueOrders_NoReadyOrders(t *testing.T) {
 
 func TestProcessDueOrders_RepoError(t *testing.T) {
 	orderRepo := &fakeOrderRepo{readyErr: errors.New("db error")}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	err := svc.processDueOrders(context.Background())
 	require.Error(t, err)
@@ -1723,7 +1748,7 @@ func TestProcessDueOrders_WithReadyOrders_ProcessesThem(t *testing.T) {
 		},
 	}
 
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient, &fakeTaxRecorder{})
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, bankingClient, &fakeTaxRecorder{})
 
 	err := svc.processDueOrders(context.Background())
 	require.NoError(t, err)
@@ -1732,7 +1757,7 @@ func TestProcessDueOrders_WithReadyOrders_ProcessesThem(t *testing.T) {
 // ── Start / Stop Tests ───────────────────────────────────────────
 
 func TestStartStop_DoesNotPanic(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{readyOrders: []model.Order{}}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{readyOrders: []model.Order{}}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	svc.Start()
 	svc.Start()
@@ -1743,7 +1768,7 @@ func TestStartStop_DoesNotPanic(t *testing.T) {
 // ── initialExecutionTime Tests ───────────────────────────────────
 
 func TestInitialExecutionTime_AfterHours(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	session := exchangeSession{IsOpen: true}
 	result := svc.initialExecutionTime(session, true)
@@ -1752,7 +1777,7 @@ func TestInitialExecutionTime_AfterHours(t *testing.T) {
 }
 
 func TestInitialExecutionTime_OpenSession(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	session := exchangeSession{IsOpen: true}
 	result := svc.initialExecutionTime(session, false)
@@ -1760,7 +1785,7 @@ func TestInitialExecutionTime_OpenSession(t *testing.T) {
 }
 
 func TestInitialExecutionTime_ClosedSession(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	nextOpen := time.Date(2025, 6, 5, 9, 0, 0, 0, time.UTC)
 	session := exchangeSession{IsOpen: false, NextOpen: nextOpen}
@@ -1801,7 +1826,7 @@ func TestProcessOrder_ClosedExchange_Reschedules(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	listingRepo := &fakeListingRepo{listing: listing}
 	exchangeRepo := &fakeExchangeRepo{exchange: exchange}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:      1,
@@ -1834,7 +1859,7 @@ func TestProcessOrder_SettlementFailedPrecondition_FailsOrder(t *testing.T) {
 	bankingClient := &fakeOrderBankingClient{
 		settlementErr: status.Error(codes.FailedPrecondition, "insufficient funds"),
 	}
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient, &fakeTaxRecorder{})
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, bankingClient, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:          1,
@@ -1881,7 +1906,7 @@ func TestRecordProfitTax_ClientSell_RecordsTax(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{listing: listing},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		bankingClient,
 		taxRecorder,
 	)
@@ -1927,7 +1952,7 @@ func TestRecordProfitTax_ActuarySell_PassesEmployeeID(t *testing.T) {
 		&fakeOrderTransactionRepo{},
 		&fakeExchangeRepo{},
 		&fakeListingRepo{listing: listing},
-		&fakeUserServiceClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		bankingClient,
 		taxRecorder,
 	)
@@ -1966,7 +1991,7 @@ func TestRecordProfitTax_NoProfit_SkipsTax(t *testing.T) {
 	taxRecorder := &fakeTaxRecorder{}
 	svc := newTestOrderService(
 		&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{},
-		&fakeListingRepo{listing: listing}, &fakeUserServiceClient{},
+		&fakeListingRepo{listing: listing}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountCurrency: "RSD"}, taxRecorder,
 	)
 	svc.assetOwnershipRepo = &fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
@@ -1989,7 +2014,7 @@ func TestRecordProfitTax_BuyOrder_Skipped(t *testing.T) {
 	taxRecorder := &fakeTaxRecorder{}
 	svc := newTestOrderService(
 		&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{},
-		&fakeListingRepo{}, &fakeUserServiceClient{},
+		&fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{}, taxRecorder,
 	)
 
@@ -2009,7 +2034,7 @@ func TestRecordProfitTax_PartialFill_Skipped(t *testing.T) {
 	taxRecorder := &fakeTaxRecorder{}
 	svc := newTestOrderService(
 		&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{},
-		&fakeListingRepo{}, &fakeUserServiceClient{},
+		&fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{}, taxRecorder,
 	)
 
