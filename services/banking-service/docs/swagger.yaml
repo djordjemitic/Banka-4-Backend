@@ -579,11 +579,13 @@ definitions:
     - Personal
     - Business
     - Bank
+    - Fund
     type: string
     x-enum-varnames:
     - AccountTypePersonal
     - AccountTypeBusiness
     - AccountTypeBank
+    - AccountTypeFund
   model.CurrencyCode:
     enum:
     - EUR

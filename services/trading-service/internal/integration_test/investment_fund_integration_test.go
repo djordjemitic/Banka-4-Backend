@@ -101,7 +101,7 @@ func TestCreateFund_DuplicateName(t *testing.T) {
 	}
 
 	rec := performRequest(t, router, http.MethodPost, "/api/investment-funds", body, auth)
-	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, http.StatusConflict, rec.Code)
 }
 
 func TestCreateFund_InvalidBody(t *testing.T) {

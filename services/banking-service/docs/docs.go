@@ -3229,12 +3229,14 @@ const docTemplate = `{
             "enum": [
                 "Personal",
                 "Business",
-                "Bank"
+                "Bank",
+                "Fund"
             ],
             "x-enum-varnames": [
                 "AccountTypePersonal",
                 "AccountTypeBusiness",
-                "AccountTypeBank"
+                "AccountTypeBank",
+                "AccountTypeFund"
             ]
         },
         "model.CurrencyCode": {
