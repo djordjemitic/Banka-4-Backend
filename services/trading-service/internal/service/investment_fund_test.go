@@ -21,6 +21,8 @@ type fakeFundRepo struct {
 	findByIDErr      error
 	findByNameResult *model.InvestmentFund
 	findByNameErr    error
+	findByIDResult   *model.InvestmentFund
+	findByIDErr      error
 	createErr        error
 	created          *model.InvestmentFund
 }
@@ -46,14 +48,49 @@ func (f *fakeFundRepo) Create(ctx context.Context, fund *model.InvestmentFund) e
 	return nil
 }
 
+// ── Fake ClientFundPosition Repo ──────────────────────────────────
+
+type fakePositionRepo struct {
+	findResult *model.ClientFundPosition
+	findErr    error
+	upsertErr  error
+}
+
+func (f *fakePositionRepo) FindByClientAndFund(ctx context.Context, clientID uint, ownerType model.OwnerType, fundID uint) (*model.ClientFundPosition, error) {
+	return f.findResult, f.findErr
+}
+
+func (f *fakePositionRepo) Upsert(ctx context.Context, position *model.ClientFundPosition) error {
+	return f.upsertErr
+}
+
+// ── Fake ClientFundInvestment Repo ────────────────────────────────
+
+type fakeInvestmentRepo struct {
+	createErr error
+}
+
+func (f *fakeInvestmentRepo) Create(ctx context.Context, investment *model.ClientFundInvestment) error {
+	return f.createErr
+}
+
+func (f *fakeInvestmentRepo) FindByClientAndFund(ctx context.Context, clientID uint, ownerType model.OwnerType, fundID uint) ([]model.ClientFundInvestment, error) {
+	return nil, nil
+}
+
 // ── Fake Fund Banking Client ──────────────────────────────────────
 
 type fakeFundBankingClient struct {
 	createdAccountNumber string
 	createFundAccountErr error
+	getAccountResult     *pb.GetAccountByNumberResponse
+	tradeSettlementErr   error
 }
 
 func (f *fakeFundBankingClient) GetAccountByNumber(_ context.Context, _ string) (*pb.GetAccountByNumberResponse, error) {
+	if f.getAccountResult != nil {
+		return f.getAccountResult, nil
+	}
 	return nil, nil
 }
 func (f *fakeFundBankingClient) HasActiveLoan(_ context.Context, _ uint64) (*pb.HasActiveLoanResponse, error) {
@@ -69,7 +106,10 @@ func (f *fakeFundBankingClient) ConvertCurrency(_ context.Context, amount float6
 	return amount, nil
 }
 func (f *fakeFundBankingClient) ExecuteTradeSettlement(_ context.Context, _, _ string, _ pb.TradeSettlementDirection, _ float64) (*pb.ExecuteTradeSettlementResponse, error) {
-	return nil, nil
+	if f.tradeSettlementErr != nil {
+		return nil, f.tradeSettlementErr
+	}
+	return &pb.ExecuteTradeSettlementResponse{}, nil
 }
 func (f *fakeFundBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
 	return "RSD", nil
@@ -107,10 +147,10 @@ func validFundRequest() dto.CreateFundRequest {
 }
 
 func newTestFundService(fundRepo *fakeFundRepo, bankingClient *fakeFundBankingClient) *InvestmentFundService {
-	return NewInvestmentFundService(fundRepo, bankingClient)
+	return NewInvestmentFundService(fundRepo, &fakePositionRepo{}, &fakeInvestmentRepo{}, bankingClient)
 }
 
-// ── Tests ─────────────────────────────────────────────────────────
+// ── Tests: CreateFund ─────────────────────────────────────────────
 
 func TestCreateFund_Success(t *testing.T) {
 	fundRepo := &fakeFundRepo{}

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -44,4 +45,42 @@ func (h *InvestmentFundHandler) CreateFund(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, fund)
+}
+
+// InvestInFund godoc
+//
+//	@Summary		Invest into a fund
+//	@Description	Allows a client or supervisor to invest money into an investment fund.
+//	@Description	Clients must provide one of their own accounts; supervisors must provide a bank account.
+//	@Tags			investment-funds
+//	@Accept			json
+//	@Produce		json
+//	@Param			fundId	path		int						true	"Fund ID"
+//	@Param			body	body		dto.InvestInFundRequest	true	"Investment details"
+//	@Success		200		{object}	dto.InvestInFundResponse
+//	@Failure		400		{object}	errors.AppError
+//	@Failure		401		{object}	errors.AppError
+//	@Failure		403		{object}	errors.AppError
+//	@Failure		404		{object}	errors.AppError
+//	@Router			/api/investment-funds/{fundId}/invest [post]
+func (h *InvestmentFundHandler) InvestInFund(c *gin.Context) {
+	fundID, err := strconv.ParseUint(c.Param("fundId"), 10, 64)
+	if err != nil || fundID == 0 {
+		c.Error(errors.BadRequestErr("invalid fund id"))
+		return
+	}
+
+	var req dto.InvestInFundRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+
+	resp, err := h.service.InvestInFund(c.Request.Context(), uint(fundID), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }

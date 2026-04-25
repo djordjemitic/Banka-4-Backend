@@ -110,10 +110,24 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			}
 		}
 		funds := api.Group("/investment-funds")
-		funds.Use(authMw, auth.RequirePermission(permission.Trading), auth.RequireIdentityType(auth.IdentityEmployee), middleware.RequireSupervisor(userClient))
+		funds.Use(authMw, auth.RequirePermission(permission.Trading))
 		{
-			funds.POST("", fundHandler.CreateFund)
+			// Samo supervisor može da kreira fond
+			funds.POST("",
+				auth.RequireIdentityType(auth.IdentityEmployee),
+				middleware.RequireSupervisor(userClient),
+				fundHandler.CreateFund,
+			)
+			// Klijenti i supervizori mogu da investiraju
+			funds.POST("/:fundId/invest",
+				auth.AnyOf(
+					auth.RequireIdentityType(auth.IdentityClient),
+					middleware.RequireSupervisor(userClient),
+				),
+				fundHandler.InvestInFund,
+			)
 		}
+
 		client := api.Group("/client")
 		client.Use(authMw, auth.RequirePermission(permission.Trading), auth.RequireClientSelf("clientId", true))
 		{

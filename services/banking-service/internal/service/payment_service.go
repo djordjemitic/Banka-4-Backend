@@ -139,19 +139,70 @@ func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymen
 	return payment, nil
 }
 
+//	func (s *PaymentService) CreatePaymentWithoutVerification(ctx context.Context, req dto.CreatePaymentRequest) (*model.Payment, error) {
+//		payment, err := s.CreatePayment(ctx, req)
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//		if err := s.transactionProcessor.Process(ctx, payment.Transaction.TransactionID); err != nil {
+//			return nil, err
+//		}
+//
+//		return payment, nil
+//	}
 func (s *PaymentService) CreatePaymentWithoutVerification(ctx context.Context, req dto.CreatePaymentRequest) (*model.Payment, error) {
-	payment, err := s.CreatePayment(ctx, req)
+	// Bypass same-client check za interne transfere (npr. fond investicije)
+	payerAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.PayerAccountNumber)
 	if err != nil {
+		return nil, errors.NotFoundErr("payer account not found")
+	}
+	recipientAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.RecipientAccountNumber)
+	if err != nil {
+		return nil, errors.NotFoundErr("recipient account not found")
+	}
+
+	if payerAccount.AvailableBalance < req.Amount {
+		return nil, errors.BadRequestErr("insufficient funds")
+	}
+
+	transaction := &model.Transaction{
+		PayerAccountNumber:     req.PayerAccountNumber,
+		RecipientAccountNumber: req.RecipientAccountNumber,
+		StartAmount:            req.Amount,
+		StartCurrencyCode:      payerAccount.Currency.Code,
+		EndAmount:              req.Amount,
+		EndCurrencyCode:        recipientAccount.Currency.Code,
+		Status:                 model.TransactionProcessing,
+	}
+
+	payment := &model.Payment{
+		RecipientName:   req.RecipientName,
+		ReferenceNumber: req.ReferenceNumber,
+		PaymentCode:     req.PaymentCode,
+		Purpose:         req.Purpose,
+	}
+
+	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.transactionRepo.Create(txCtx, transaction); err != nil {
+			return errors.InternalErr(err)
+		}
+		payment.TransactionID = transaction.TransactionID
+		if err := s.paymentRepo.Create(txCtx, payment); err != nil {
+			return errors.InternalErr(err)
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
-	if err := s.transactionProcessor.Process(ctx, payment.Transaction.TransactionID); err != nil {
+	if err := s.transactionProcessor.Process(ctx, transaction.TransactionID); err != nil {
 		return nil, err
 	}
 
+	payment.Transaction = *transaction
 	return payment, nil
 }
-
 func (s *PaymentService) GetPaymentByID(ctx context.Context, id uint) (*model.Payment, error) {
 	payment, err := s.paymentRepo.GetByID(ctx, id)
 	if err != nil {

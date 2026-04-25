@@ -101,6 +101,8 @@ func main() {
 			service.NewOTCService,
 			handler.NewOTCHandler,
 			repository.NewInvestmentFundRepository,
+			repository.NewClientFundPositionRepository,
+			repository.NewClientFundInvestmentRepository,
 			service.NewInvestmentFundService,
 			handler.NewInvestmentFundHandler,
 		),
@@ -132,6 +134,7 @@ func main() {
 				&model.TaxCollection{},
 				&model.InvestmentFund{},
 				&model.ClientFundPosition{},
+				&model.ClientFundInvestment{},
 			)
 		}),
 		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {

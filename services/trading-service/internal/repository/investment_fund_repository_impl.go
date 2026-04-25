@@ -46,3 +46,12 @@ func (r *investmentFundRepository) FindByName(ctx context.Context, name string) 
 	}
 	return &fund, result.Error
 }
+
+func (r *investmentFundRepository) FindByID(ctx context.Context, id uint) (*model.InvestmentFund, error) {
+	var fund model.InvestmentFund
+	result := r.db.WithContext(ctx).First(&fund, id)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &fund, result.Error
+}
