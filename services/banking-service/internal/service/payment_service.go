@@ -52,25 +52,23 @@ func NewPaymentService(
 	}
 }
 
-func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymentRequest) (*model.Payment, error) {
-
-	// Proveri da payer racun postoji
+func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymentRequest, skipSameClientCheck ...bool) (*model.Payment, error) {
 	payerAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.PayerAccountNumber)
 	if err != nil {
 		return nil, errors.NotFoundErr("payer account not found")
 	}
 
-	// Proveri da recipient racun postoji
 	recipientAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.RecipientAccountNumber)
 	if err != nil {
 		return nil, errors.NotFoundErr("recipient account not found")
 	}
 
 	if recipientAccount.ClientID == payerAccount.ClientID {
-		return nil, errors.BadRequestErr("cannot make payment for same client accounts, that is a transfer")
+		if len(skipSameClientCheck) == 0 || !skipSameClientCheck[0] {
+			return nil, errors.BadRequestErr("cannot make payment for same client accounts, that is a transfer")
+		}
 	}
 
-	// Konverzija valuta ako su razlicite
 	commission := 0.0
 	startAmount := req.Amount
 	endAmount := req.Amount
@@ -87,17 +85,14 @@ func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymen
 		endCurrencyCode = recipientAccount.Currency.Code
 	}
 
-	// Proveri dovoljno sredstava
 	if payerAccount.AvailableBalance < startAmount {
 		return nil, errors.BadRequestErr("insufficient funds")
 	}
 
-	// Proveri dnevni limit
 	if payerAccount.DailySpending+startAmount > payerAccount.DailyLimit {
 		return nil, errors.BadRequestErr("daily limit exceeded")
 	}
 
-	// Proveri mesecni limit
 	if payerAccount.MonthlySpending+startAmount > payerAccount.MonthlyLimit {
 		return nil, errors.BadRequestErr("monthly limit exceeded")
 	}
@@ -139,70 +134,19 @@ func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymen
 	return payment, nil
 }
 
-//	func (s *PaymentService) CreatePaymentWithoutVerification(ctx context.Context, req dto.CreatePaymentRequest) (*model.Payment, error) {
-//		payment, err := s.CreatePayment(ctx, req)
-//		if err != nil {
-//			return nil, err
-//		}
-//
-//		if err := s.transactionProcessor.Process(ctx, payment.Transaction.TransactionID); err != nil {
-//			return nil, err
-//		}
-//
-//		return payment, nil
-//	}
 func (s *PaymentService) CreatePaymentWithoutVerification(ctx context.Context, req dto.CreatePaymentRequest) (*model.Payment, error) {
-	// Bypass same-client check za interne transfere (npr. fond investicije)
-	payerAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.PayerAccountNumber)
+	payment, err := s.CreatePayment(ctx, req, true)
 	if err != nil {
-		return nil, errors.NotFoundErr("payer account not found")
-	}
-	recipientAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.RecipientAccountNumber)
-	if err != nil {
-		return nil, errors.NotFoundErr("recipient account not found")
-	}
-
-	if payerAccount.AvailableBalance < req.Amount {
-		return nil, errors.BadRequestErr("insufficient funds")
-	}
-
-	transaction := &model.Transaction{
-		PayerAccountNumber:     req.PayerAccountNumber,
-		RecipientAccountNumber: req.RecipientAccountNumber,
-		StartAmount:            req.Amount,
-		StartCurrencyCode:      payerAccount.Currency.Code,
-		EndAmount:              req.Amount,
-		EndCurrencyCode:        recipientAccount.Currency.Code,
-		Status:                 model.TransactionProcessing,
-	}
-
-	payment := &model.Payment{
-		RecipientName:   req.RecipientName,
-		ReferenceNumber: req.ReferenceNumber,
-		PaymentCode:     req.PaymentCode,
-		Purpose:         req.Purpose,
-	}
-
-	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
-		if err := s.transactionRepo.Create(txCtx, transaction); err != nil {
-			return errors.InternalErr(err)
-		}
-		payment.TransactionID = transaction.TransactionID
-		if err := s.paymentRepo.Create(txCtx, payment); err != nil {
-			return errors.InternalErr(err)
-		}
-		return nil
-	}); err != nil {
 		return nil, err
 	}
 
-	if err := s.transactionProcessor.Process(ctx, transaction.TransactionID); err != nil {
+	if err := s.transactionProcessor.Process(ctx, payment.Transaction.TransactionID); err != nil {
 		return nil, err
 	}
 
-	payment.Transaction = *transaction
 	return payment, nil
 }
+
 func (s *PaymentService) GetPaymentByID(ctx context.Context, id uint) (*model.Payment, error) {
 	payment, err := s.paymentRepo.GetByID(ctx, id)
 	if err != nil {
@@ -336,7 +280,6 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, id uint, code, autho
 	}
 
 	if code != "123456" && !verifyTOTPCode(secret, code, s.now(), totpAllowedSkew) {
-
 		payment.FailedAttempts++
 		if updateErr := s.paymentRepo.Update(ctx, payment); updateErr != nil {
 			return nil, errors.InternalErr(updateErr)
@@ -351,7 +294,6 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, id uint, code, autho
 		return nil, errors.BadRequestErr("invalid verification code")
 	}
 
-	// Process transaction
 	err = s.transactionProcessor.Process(ctx, transaction.TransactionID)
 	if err != nil {
 		return nil, err

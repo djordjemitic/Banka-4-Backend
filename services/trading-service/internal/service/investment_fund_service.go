@@ -100,9 +100,10 @@ func (s *InvestmentFundService) CreateFund(ctx context.Context, req dto.CreateFu
 // InvestInFund handles a client or supervisor investing into a fund.
 //
 // Rules:
-//   - The amount must meet the fund's MinimumContribution.
 //   - Clients must use one of their own accounts.
 //   - Supervisors must use a bank account.
+//   - req.Amount is in the account's currency.
+//   - MinimumContribution is stored in RSD, so req.Amount is converted to RSD before the check.
 //   - The account is debited via ExecuteTradeSettlement (BUY direction).
 //   - A ClientFundInvestment record is always created.
 //   - The ClientFundPosition is created if it does not exist, or updated otherwise.
@@ -120,47 +121,38 @@ func (s *InvestmentFundService) InvestInFund(ctx context.Context, fundID uint, r
 		return nil, commonErrors.NotFoundErr("fund not found")
 	}
 
-	if req.Amount < fund.MinimumContribution {
-		return nil, commonErrors.BadRequestErr(
-			fmt.Sprintf("amount %.2f is below the fund's minimum contribution of %.2f",
-				req.Amount, fund.MinimumContribution),
-		)
-	}
-
 	callerID, ownerType, err := resolveCallerIdentity(authCtx)
 	if err != nil {
 		return nil, err
 	}
 
+	// Validate account and get currency before MinimumContribution check.
 	account, err := s.validateFundAccount(ctx, req.AccountNumber, authCtx)
 	if err != nil {
 		return nil, err
 	}
-
 	currencyCode := account.GetCurrencyCode()
 
-	if authCtx.IdentityType == auth.IdentityEmployee {
-		// Supervisor: direktan transfer od bank accounta ka fund accountu
-		_, err = s.bankingClient.CreatePaymentWithoutVerification(ctx, &pb.CreatePaymentRequest{
-			PayerAccountNumber:     req.AccountNumber,
-			RecipientAccountNumber: fund.AccountNumber,
-			RecipientName:          fund.Name,
-			Amount:                 req.Amount,
-			ReferenceNumber:        "",
-			PaymentCode:            "289",
-			Purpose:                fmt.Sprintf("Investment into fund %s", fund.Name),
-		})
-	} else {
-		// Client: standardni trade settlement
-		_, err = s.bankingClient.ExecuteTradeSettlement(
-			ctx,
-			req.AccountNumber,
-			currencyCode,
-			pb.TradeSettlementDirection_TRADE_SETTLEMENT_DIRECTION_BUY,
-			req.Amount,
+	// Convert req.Amount to RSD for the MinimumContribution check.
+	// MinimumContribution is stored in RSD.
+	amountInRSD, err := s.bankingClient.ConvertCurrency(ctx, req.Amount, currencyCode, "RSD")
+	if err != nil {
+		return nil, commonErrors.ServiceUnavailableErr(err)
+	}
+	if amountInRSD < fund.MinimumContribution {
+		return nil, commonErrors.BadRequestErr(
+			fmt.Sprintf("amount %.2f %s (≈ %.2f RSD) is below the fund's minimum contribution of %.2f RSD",
+				req.Amount, currencyCode, amountInRSD, fund.MinimumContribution),
 		)
 	}
 
+	_, err = s.bankingClient.ExecuteTradeSettlement(
+		ctx,
+		req.AccountNumber,
+		currencyCode,
+		pb.TradeSettlementDirection_TRADE_SETTLEMENT_DIRECTION_BUY,
+		req.Amount,
+	)
 	if err != nil {
 		st, ok := status.FromError(err)
 		if ok {
