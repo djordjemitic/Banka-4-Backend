@@ -319,7 +319,7 @@ definitions:
         type: string
       invested_now:
         type: number
-      total_invested:
+      total_invested_rsd:
         type: number
     type: object
   dto.ListOrdersResponse:
