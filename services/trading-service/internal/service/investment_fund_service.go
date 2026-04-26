@@ -126,15 +126,12 @@ func (s *InvestmentFundService) InvestInFund(ctx context.Context, fundID uint, r
 		return nil, err
 	}
 
-	// Validate account and get currency before MinimumContribution check.
 	account, err := s.validateFundAccount(ctx, req.AccountNumber, authCtx)
 	if err != nil {
 		return nil, err
 	}
 	currencyCode := account.GetCurrencyCode()
 
-	// Convert req.Amount to RSD for the MinimumContribution check.
-	// MinimumContribution is stored in RSD.
 	amountInRSD, err := s.bankingClient.ConvertCurrency(ctx, req.Amount, currencyCode, "RSD")
 	if err != nil {
 		return nil, commonErrors.ServiceUnavailableErr(err)
@@ -146,13 +143,25 @@ func (s *InvestmentFundService) InvestInFund(ctx context.Context, fundID uint, r
 		)
 	}
 
-	_, err = s.bankingClient.ExecuteTradeSettlement(
-		ctx,
-		req.AccountNumber,
-		currencyCode,
-		pb.TradeSettlementDirection_TRADE_SETTLEMENT_DIRECTION_BUY,
-		req.Amount,
-	)
+	if authCtx.IdentityType == auth.IdentityEmployee {
+		_, err = s.bankingClient.CreatePaymentWithoutVerification(ctx, &pb.CreatePaymentRequest{
+			PayerAccountNumber:     req.AccountNumber,
+			RecipientAccountNumber: fund.AccountNumber,
+			RecipientName:          fund.Name,
+			Amount:                 req.Amount,
+			PaymentCode:            "289",
+			Purpose:                fmt.Sprintf("Investment into fund %s", fund.Name),
+		})
+	} else {
+		_, err = s.bankingClient.ExecuteTradeSettlement(
+			ctx,
+			req.AccountNumber,
+			currencyCode,
+			pb.TradeSettlementDirection_TRADE_SETTLEMENT_DIRECTION_BUY,
+			req.Amount,
+		)
+	}
+
 	if err != nil {
 		st, ok := status.FromError(err)
 		if ok {
@@ -190,11 +199,11 @@ func (s *InvestmentFundService) InvestInFund(ctx context.Context, fundID uint, r
 			ClientID:            callerID,
 			OwnerType:           ownerType,
 			FundID:              fundID,
-			TotalInvestedAmount: req.Amount,
+			TotalInvestedAmount: amountInRSD,
 			UpdatedAt:           now,
 		}
 	} else {
-		position.TotalInvestedAmount += req.Amount
+		position.TotalInvestedAmount += amountInRSD
 		position.UpdatedAt = now
 	}
 	if err := s.positionRepo.Upsert(ctx, position); err != nil {
@@ -202,12 +211,12 @@ func (s *InvestmentFundService) InvestInFund(ctx context.Context, fundID uint, r
 	}
 
 	return &dto.InvestInFundResponse{
-		FundID:        fund.FundID,
-		FundName:      fund.Name,
-		InvestedNow:   req.Amount,
-		CurrencyCode:  currencyCode,
-		TotalInvested: position.TotalInvestedAmount,
-		CreatedAt:     now,
+		FundID:           fund.FundID,
+		FundName:         fund.Name,
+		InvestedNow:      req.Amount,
+		CurrencyCode:     currencyCode,
+		TotalInvestedRSD: position.TotalInvestedAmount,
+		CreatedAt:        now,
 	}, nil
 }
 

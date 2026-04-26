@@ -13,10 +13,10 @@ type InvestInFundRequest struct {
 
 // InvestInFundResponse is returned after a successful investment.
 type InvestInFundResponse struct {
-	FundID        uint      `json:"fund_id"`
-	FundName      string    `json:"fund_name"`
-	InvestedNow   float64   `json:"invested_now"`
-	CurrencyCode  string    `json:"currency_code"`
-	TotalInvested float64   `json:"total_invested"`
-	CreatedAt     time.Time `json:"created_at"`
+	FundID           uint      `json:"fund_id"`
+	FundName         string    `json:"fund_name"`
+	InvestedNow      float64   `json:"invested_now"`
+	CurrencyCode     string    `json:"currency_code"`
+	TotalInvestedRSD float64   `json:"total_invested_rsd"`
+	CreatedAt        time.Time `json:"created_at"`
 }
