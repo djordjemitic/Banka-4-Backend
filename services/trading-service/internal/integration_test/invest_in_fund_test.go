@@ -180,3 +180,25 @@ func TestInvestInFund_CurrencyConversion(t *testing.T) {
 	require.Equal(t, resp["total_invested"], resp["total_invested"])
 	require.Equal(t, "RSD", resp["currency_code"])
 }
+
+func TestInvestInFund_SupervisorWithDifferentBankAccount(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	fund := seedInvestmentFund(t, db, fmt.Sprintf("Fund %d", uniqueCounter.Add(1)), 10)
+
+	auth := authHeaderForSupervisor(t)
+
+	body := map[string]any{
+		"account_number": "444000000000000099",
+		"amount":         5000.0,
+	}
+
+	rec := performRequest(t, router, http.MethodPost, fmt.Sprintf("/api/investment-funds/%d/invest", fund.FundID), body, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	resp := decodeResponse[map[string]any](t, rec)
+	require.Equal(t, float64(fund.FundID), resp["fund_id"])
+	require.Equal(t, 5000.0, resp["invested_now"])
+}

@@ -84,6 +84,7 @@ func (s *BankingService) CreatePaymentWithoutVerification(ctx context.Context, r
 		ReferenceNumber:        req.ReferenceNumber,
 		PaymentCode:            req.PaymentCode,
 		Purpose:                req.Purpose,
+		CommissionExempt:       req.CommissionExempt,
 	})
 	if err != nil {
 		return nil, errors.MapGrpcToHttpError(err)

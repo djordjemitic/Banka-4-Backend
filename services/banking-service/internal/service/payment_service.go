@@ -74,13 +74,21 @@ func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymen
 	endAmount := req.Amount
 	endCurrencyCode := payerAccount.Currency.Code
 
-	if payerAccount.Currency.Code != recipientAccount.Currency.Code {
+	if payerAccount.Currency.Code != recipientAccount.Currency.Code && !req.CommissionExempt {
 		converted, err := s.exchangeService.Convert(ctx, req.Amount, payerAccount.Currency.Code, recipientAccount.Currency.Code)
 		if err != nil {
 			return nil, errors.InternalErr(err)
 		}
 		commission = s.exchangeService.CalculateFee(req.Amount)
 		startAmount = req.Amount + commission
+		endAmount = converted
+		endCurrencyCode = recipientAccount.Currency.Code
+	} else if payerAccount.Currency.Code != recipientAccount.Currency.Code && req.CommissionExempt {
+		converted, err := s.exchangeService.Convert(ctx, req.Amount, payerAccount.Currency.Code, recipientAccount.Currency.Code)
+		if err != nil {
+			return nil, errors.InternalErr(err)
+		}
+		startAmount = req.Amount
 		endAmount = converted
 		endCurrencyCode = recipientAccount.Currency.Code
 	}

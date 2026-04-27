@@ -144,7 +144,7 @@ func (s *InvestmentFundService) InvestInFund(ctx context.Context, fundID uint, r
 	payerAccount := req.AccountNumber
 	payerAmount := req.Amount
 	if authCtx.IdentityType == auth.IdentityEmployee {
-		payerAccount = "444000000000000000"
+		payerAccount = req.AccountNumber
 		payerAmount = amountInRSD
 	}
 
@@ -155,6 +155,7 @@ func (s *InvestmentFundService) InvestInFund(ctx context.Context, fundID uint, r
 		Amount:                 payerAmount,
 		PaymentCode:            "289",
 		Purpose:                fmt.Sprintf("Investment into fund %s", fund.Name),
+		CommissionExempt:       true,
 	})
 
 	if err != nil {

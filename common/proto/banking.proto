@@ -48,6 +48,7 @@ message CreatePaymentRequest {
   string reference_number         = 5;
   string payment_code             = 6;
   string purpose                  = 7;
+  bool   commission_exempt        = 8;
 }
 
 message CreatePaymentResponse {
