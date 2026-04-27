@@ -7,6 +7,7 @@ type OwnerType string
 const (
 	OwnerTypeClient  OwnerType = "CLIENT"
 	OwnerTypeActuary OwnerType = "ACTUARY"
+	OwnerTypeFund    OwnerType = "FUND"
 )
 
 type AssetOwnership struct {

@@ -88,6 +88,36 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	c.JSON(http.StatusCreated, dto.ToOrderResponse(*order))
 }
 
+// CreateFundOrder godoc
+// @Summary Create an order on behalf of an investment fund
+// @Description Supervisor places a buy or sell order for a listing using a fund's account. The fund becomes the asset owner.
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Param request body dto.CreateFundOrderRequest true "Fund order details"
+// @Success 201 {object} dto.OrderResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/orders/invest [post]
+func (h *OrderHandler) CreateFundOrder(c *gin.Context) {
+	var req dto.CreateFundOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+
+	order, err := h.service.CreateFundOrder(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, dto.ToOrderResponse(*order))
+}
+
 // ApproveOrder godoc
 // @Summary Approve a pending order
 // @Description Supervisor approves a pending order

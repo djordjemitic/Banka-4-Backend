@@ -17,6 +17,8 @@ import (
 // ── Fake Fund Repo ────────────────────────────────────────────────
 
 type fakeFundRepo struct {
+	findByIDResult   *model.InvestmentFund
+	findByIDErr      error
 	findByNameResult *model.InvestmentFund
 	findByNameErr    error
 	createErr        error
@@ -25,6 +27,10 @@ type fakeFundRepo struct {
 
 func (f *fakeFundRepo) FindByName(ctx context.Context, name string) (*model.InvestmentFund, error) {
 	return f.findByNameResult, f.findByNameErr
+}
+
+func (f *fakeFundRepo) FindByID(ctx context.Context, id uint) (*model.InvestmentFund, error) {
+	return f.findByIDResult, f.findByIDErr
 }
 
 func (f *fakeFundRepo) FindByAccountNumber(ctx context.Context, accountNumber string) (*model.InvestmentFund, error) {

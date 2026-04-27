@@ -364,14 +364,14 @@ func TestProcessOrder_MarketOrder_PartialFill_SchedulesNext(t *testing.T) {
 func TestCalculateInitialPricePerUnit_StopLimit(t *testing.T) {
 	listing := &model.Listing{Price: 150.0, Ask: 151.0}
 	lv := 155.0
-	p := calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: model.OrderTypeStopLimit, LimitValue: &lv}, listing)
+	p := calculateInitialPricePerUnit(placeOrderParams{OrderType: model.OrderTypeStopLimit, LimitValue: &lv}, listing)
 	require.NotNil(t, p)
 	require.Equal(t, 155.0, *p)
 }
 
 func TestCalculateInitialPricePerUnit_Unknown(t *testing.T) {
 	listing := &model.Listing{Price: 150.0, Ask: 151.0}
-	p := calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: "UNKNOWN"}, listing)
+	p := calculateInitialPricePerUnit(placeOrderParams{OrderType: "UNKNOWN"}, listing)
 	require.Nil(t, p)
 }
 
