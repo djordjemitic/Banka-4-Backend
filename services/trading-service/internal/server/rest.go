@@ -160,6 +160,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 		{
 			orders.GET("", middleware.RequireSupervisor(userClient), orderHandler.GetOrders)
 			orders.POST("", orderHandler.CreateOrder)
+			orders.POST("/invest", middleware.RequireSupervisor(userClient), orderHandler.CreateFundOrder)
 			orders.PATCH("/:id/approve", middleware.RequireSupervisor(userClient), orderHandler.ApproveOrder)
 			orders.PATCH("/:id/decline", middleware.RequireSupervisor(userClient), orderHandler.DeclineOrder)
 			orders.PATCH("/:id/cancel", orderHandler.CancelOrder)

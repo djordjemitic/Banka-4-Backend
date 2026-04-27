@@ -314,7 +314,7 @@ func newTestOrderService(
 	bankingClient *fakeOrderBankingClient,
 	taxRecorder *fakeTaxRecorder,
 ) *OrderService {
-	svc := NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, &fakeAssetOwnershipRepo{}, &fakeFuturesRepo{}, &fakeOptionRepo{}, userClient, bankingClient, taxRecorder)
+	svc := NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, &fakeAssetOwnershipRepo{}, &fakeFuturesRepo{}, &fakeOptionRepo{}, &fakeFundRepo{}, userClient, bankingClient, taxRecorder)
 	svc.now = func() time.Time {
 		return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC)
 	}
@@ -360,12 +360,21 @@ func defaultAccountResp(clientID uint64) *pb.GetAccountByNumberResponse {
 	}
 }
 
+func defaultFundAccountResp(managerID uint64) *pb.GetAccountByNumberResponse {
+	return &pb.GetAccountByNumberResponse{
+		ClientId:         managerID,
+		AccountType:      "Bank",
+		CurrencyCode:     "RSD",
+		AvailableBalance: 100000,
+	}
+}
+
 // ── GetOrders Tests ───────────────────────────────────────────────
 
 func TestGetOrders_Success(t *testing.T) {
 	orders := []model.Order{
-		{OrderID: 1, UserID: 1, Status: model.OrderStatusApproved},
-		{OrderID: 2, UserID: 2, Status: model.OrderStatusPending},
+		{OrderID: 1, OrderOwnerUserID: 1, Status: model.OrderStatusApproved},
+		{OrderID: 2, OrderOwnerUserID: 2, Status: model.OrderStatusPending},
 	}
 	repo := &fakeOrderRepo{orders: orders, total: 2}
 	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
@@ -450,6 +459,7 @@ func TestCreateOrder_LimitSell_Success(t *testing.T) {
 		ownershipRepo,
 		&fakeFuturesRepo{},
 		&fakeOptionRepo{},
+		&fakeFundRepo{},
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)},
 		&fakeTaxRecorder{},
@@ -1168,10 +1178,10 @@ func TestDeclineOrder_MissingAuth(t *testing.T) {
 
 func TestCancelOrder_OwnerCancelsOwn(t *testing.T) {
 	pendingOrder := &model.Order{
-		OrderID: 1,
-		UserID:  10,
-		Status:  model.OrderStatusPending,
-		IsDone:  false,
+		OrderID:          1,
+		OrderOwnerUserID: 10,
+		Status:           model.OrderStatusPending,
+		IsDone:           false,
 	}
 
 	svc := newTestOrderService(
@@ -1199,10 +1209,10 @@ func TestCancelOrder_OwnerCancelsOwn(t *testing.T) {
 
 func TestCancelOrder_SupervisorCancelsOther(t *testing.T) {
 	pendingOrder := &model.Order{
-		OrderID: 1,
-		UserID:  999,
-		Status:  model.OrderStatusApproved,
-		IsDone:  false,
+		OrderID:          1,
+		OrderOwnerUserID: 999,
+		Status:           model.OrderStatusApproved,
+		IsDone:           false,
 	}
 
 	svc := newTestOrderService(
@@ -1233,10 +1243,10 @@ func TestCancelOrder_SupervisorCancelsOther(t *testing.T) {
 
 func TestCancelOrder_NonOwnerNonSupervisor_Forbidden(t *testing.T) {
 	pendingOrder := &model.Order{
-		OrderID: 1,
-		UserID:  999,
-		Status:  model.OrderStatusPending,
-		IsDone:  false,
+		OrderID:          1,
+		OrderOwnerUserID: 999,
+		Status:           model.OrderStatusPending,
+		IsDone:           false,
 	}
 
 	svc := newTestOrderService(
@@ -1266,10 +1276,10 @@ func TestCancelOrder_NonOwnerNonSupervisor_Forbidden(t *testing.T) {
 
 func TestCancelOrder_AlreadyDone(t *testing.T) {
 	doneOrder := &model.Order{
-		OrderID: 1,
-		UserID:  10,
-		Status:  model.OrderStatusApproved,
-		IsDone:  true,
+		OrderID:          1,
+		OrderOwnerUserID: 10,
+		Status:           model.OrderStatusApproved,
+		IsDone:           true,
 	}
 
 	svc := newTestOrderService(
@@ -1309,10 +1319,10 @@ func TestCancelOrder_NotFound(t *testing.T) {
 
 func TestCancelOrder_DeclinedStatus_BadRequest(t *testing.T) {
 	declinedOrder := &model.Order{
-		OrderID: 1,
-		UserID:  10,
-		Status:  model.OrderStatusDeclined,
-		IsDone:  false,
+		OrderID:          1,
+		OrderOwnerUserID: 10,
+		Status:           model.OrderStatusDeclined,
+		IsDone:           false,
 	}
 
 	svc := newTestOrderService(
@@ -1334,10 +1344,10 @@ func TestCancelOrder_DeclinedStatus_BadRequest(t *testing.T) {
 
 func TestCancelOrder_MissingAuth(t *testing.T) {
 	pendingOrder := &model.Order{
-		OrderID: 1,
-		UserID:  1,
-		Status:  model.OrderStatusPending,
-		IsDone:  false,
+		OrderID:          1,
+		OrderOwnerUserID: 1,
+		Status:           model.OrderStatusPending,
+		IsDone:           false,
 	}
 
 	svc := newTestOrderService(
@@ -1359,19 +1369,19 @@ func TestCancelOrder_MissingAuth(t *testing.T) {
 // ── Pure function tests ───────────────────────────────────────────
 
 func TestValidateOrderTypeFields(t *testing.T) {
-	require.NoError(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeMarket}))
+	require.NoError(t, validateOrderTypeFields(placeOrderParams{OrderType: model.OrderTypeMarket}))
 
-	require.Error(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeLimit}))
+	require.Error(t, validateOrderTypeFields(placeOrderParams{OrderType: model.OrderTypeLimit}))
 	lv := 100.0
-	require.NoError(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeLimit, LimitValue: &lv}))
+	require.NoError(t, validateOrderTypeFields(placeOrderParams{OrderType: model.OrderTypeLimit, LimitValue: &lv}))
 
-	require.Error(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeStop}))
+	require.Error(t, validateOrderTypeFields(placeOrderParams{OrderType: model.OrderTypeStop}))
 	sv := 90.0
-	require.NoError(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeStop, StopValue: &sv}))
+	require.NoError(t, validateOrderTypeFields(placeOrderParams{OrderType: model.OrderTypeStop, StopValue: &sv}))
 
-	require.Error(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeStopLimit, LimitValue: &lv}))
-	require.Error(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeStopLimit, StopValue: &sv}))
-	require.NoError(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeStopLimit, LimitValue: &lv, StopValue: &sv}))
+	require.Error(t, validateOrderTypeFields(placeOrderParams{OrderType: model.OrderTypeStopLimit, LimitValue: &lv}))
+	require.Error(t, validateOrderTypeFields(placeOrderParams{OrderType: model.OrderTypeStopLimit, StopValue: &sv}))
+	require.NoError(t, validateOrderTypeFields(placeOrderParams{OrderType: model.OrderTypeStopLimit, LimitValue: &lv, StopValue: &sv}))
 }
 
 func TestCalculateInitialPricePerUnit(t *testing.T) {
@@ -1379,19 +1389,19 @@ func TestCalculateInitialPricePerUnit(t *testing.T) {
 	lv := 155.0
 	sv := 145.0
 
-	p := calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionBuy}, listing)
+	p := calculateInitialPricePerUnit(placeOrderParams{OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionBuy}, listing)
 	require.NotNil(t, p)
 	require.Equal(t, 151.0, *p)
 
-	p = calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionSell}, listing)
+	p = calculateInitialPricePerUnit(placeOrderParams{OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionSell}, listing)
 	require.NotNil(t, p)
 	require.Equal(t, 150.0, *p)
 
-	p = calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: model.OrderTypeLimit, LimitValue: &lv}, listing)
+	p = calculateInitialPricePerUnit(placeOrderParams{OrderType: model.OrderTypeLimit, LimitValue: &lv}, listing)
 	require.NotNil(t, p)
 	require.Equal(t, 155.0, *p)
 
-	p = calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: model.OrderTypeStop, StopValue: &sv}, listing)
+	p = calculateInitialPricePerUnit(placeOrderParams{OrderType: model.OrderTypeStop, StopValue: &sv}, listing)
 	require.NotNil(t, p)
 	require.Equal(t, 145.0, *p)
 }
@@ -1929,16 +1939,16 @@ func TestRecordProfitTax_ClientSell_RecordsTax(t *testing.T) {
 	svc.assetOwnershipRepo = &fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
 
 	order := &model.Order{
-		OrderID:       1,
-		UserID:        10,
-		AccountNumber: "444000100000000110",
-		ListingID:     1,
-		Listing:       *listing,
-		Direction:     model.OrderDirectionSell,
-		Quantity:      1,
-		FilledQty:     1,
-		ContractSize:  1,
-		OwnerType:     model.OwnerTypeClient,
+		OrderID:          1,
+		OrderOwnerUserID: 10,
+		AccountNumber:    "444000100000000110",
+		ListingID:        1,
+		Listing:          *listing,
+		Direction:        model.OrderDirectionSell,
+		Quantity:         1,
+		FilledQty:        1,
+		ContractSize:     1,
+		OrderOwnerType:   model.OwnerTypeClient,
 	}
 
 	err := svc.recordProfitTax(context.Background(), order, 1, 200.0, "RSD")
@@ -1976,14 +1986,14 @@ func TestRecordProfitTax_ActuarySell_PassesEmployeeID(t *testing.T) {
 
 	userID := uint(42)
 	order := &model.Order{
-		UserID:        userID,
-		AccountNumber: "444000100000000110",
-		Listing:       *listing,
-		Direction:     model.OrderDirectionSell,
-		Quantity:      1,
-		FilledQty:     1,
-		ContractSize:  1,
-		OwnerType:     model.OwnerTypeActuary,
+		OrderOwnerUserID: userID,
+		AccountNumber:    "444000100000000110",
+		Listing:          *listing,
+		Direction:        model.OrderDirectionSell,
+		Quantity:         1,
+		FilledQty:        1,
+		ContractSize:     1,
+		OrderOwnerType:   model.OwnerTypeActuary,
 	}
 
 	err := svc.recordProfitTax(context.Background(), order, 1, 200.0, "RSD")
@@ -2013,12 +2023,12 @@ func TestRecordProfitTax_NoProfit_SkipsTax(t *testing.T) {
 	svc.assetOwnershipRepo = &fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
 
 	order := &model.Order{
-		Listing:      *listing,
-		Direction:    model.OrderDirectionSell,
-		Quantity:     1,
-		FilledQty:    1,
-		ContractSize: 1,
-		OwnerType:    model.OwnerTypeClient,
+		Listing:        *listing,
+		Direction:      model.OrderDirectionSell,
+		Quantity:       1,
+		FilledQty:      1,
+		ContractSize:   1,
+		OrderOwnerType: model.OwnerTypeClient,
 	}
 
 	err := svc.recordProfitTax(context.Background(), order, 1, 200.0, "RSD")
@@ -2064,4 +2074,198 @@ func TestRecordProfitTax_PartialFill_Skipped(t *testing.T) {
 	err := svc.recordProfitTax(context.Background(), order, 1, 200.0, "RSD")
 	require.NoError(t, err)
 	require.False(t, taxRecorder.called)
+}
+
+// ── CreateFundOrder unit tests ────────────────────────────────────
+
+func newFundOrderService(fundRepo *fakeFundRepo, ownershipRepo *fakeAssetOwnershipRepo) *OrderService {
+	// Supervisor: IsAgent=false so resolveOrderStatus returns PENDING without limit checks.
+	userClient := &fakeUserServiceClient{
+		employeeResp: &pb.GetEmployeeByIdResponse{IsSupervisor: true, IsAgent: false},
+	}
+	svc := NewOrderService(
+		&fakeOrderRepo{},
+		&fakeOrderTransactionRepo{},
+		&fakeExchangeRepo{exchange: defaultExchange()},
+		&fakeListingRepo{listing: defaultListing()},
+		ownershipRepo,
+		&fakeFuturesRepo{},
+		&fakeOptionRepo{},
+		fundRepo,
+		userClient,
+		&fakeOrderBankingClient{accountResp: defaultFundAccountResp(1_000_000)},
+		&fakeTaxRecorder{},
+	)
+	svc.now = func() time.Time { return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC) }
+	return svc
+}
+
+func defaultFund(managerID uint) *model.InvestmentFund {
+	return &model.InvestmentFund{
+		FundID:        42,
+		Name:          "Test Fund",
+		ManagerID:     managerID,
+		AccountNumber: "444000000000000000",
+		LiquidAssets:  500_000,
+	}
+}
+
+func TestCreateFundOrder_BuyMarket_Success(t *testing.T) {
+	const managerID uint = 5
+	svc := newFundOrderService(
+		&fakeFundRepo{findByIDResult: defaultFund(managerID)},
+		&fakeAssetOwnershipRepo{},
+	)
+
+	order, err := svc.CreateFundOrder(supervisorAuthCtx(managerID), dto.CreateFundOrderRequest{
+		FundID:    42,
+		ListingID: 1,
+		OrderType: model.OrderTypeMarket,
+		Direction: model.OrderDirectionBuy,
+		Quantity:  10,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, order)
+	require.Equal(t, managerID, order.OrderOwnerUserID)
+	require.Equal(t, model.OwnerTypeActuary, order.OrderOwnerType)
+	require.Equal(t, uint(42), order.AssetOwnerUserID)
+	require.Equal(t, model.OwnerTypeFund, order.AssetOwnerType)
+	require.Equal(t, "444000000000000000", order.AccountNumber)
+	require.True(t, order.CommissionExempt)
+}
+
+func TestCreateFundOrder_NotAuthenticated(t *testing.T) {
+	svc := newFundOrderService(&fakeFundRepo{}, &fakeAssetOwnershipRepo{})
+
+	_, err := svc.CreateFundOrder(context.Background(), dto.CreateFundOrderRequest{
+		FundID:    1,
+		ListingID: 1,
+		OrderType: model.OrderTypeMarket,
+		Direction: model.OrderDirectionBuy,
+		Quantity:  1,
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "only employees")
+}
+
+func TestCreateFundOrder_ClientCannotPlaceFundOrder(t *testing.T) {
+	svc := newFundOrderService(&fakeFundRepo{}, &fakeAssetOwnershipRepo{})
+
+	_, err := svc.CreateFundOrder(clientAuthCtx(), dto.CreateFundOrderRequest{
+		FundID:    1,
+		ListingID: 1,
+		OrderType: model.OrderTypeMarket,
+		Direction: model.OrderDirectionBuy,
+		Quantity:  1,
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "only employees")
+}
+
+func TestCreateFundOrder_FundNotFound(t *testing.T) {
+	svc := newFundOrderService(
+		&fakeFundRepo{findByIDResult: nil},
+		&fakeAssetOwnershipRepo{},
+	)
+
+	_, err := svc.CreateFundOrder(supervisorAuthCtx(5), dto.CreateFundOrderRequest{
+		FundID:    99,
+		ListingID: 1,
+		OrderType: model.OrderTypeMarket,
+		Direction: model.OrderDirectionBuy,
+		Quantity:  1,
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "investment fund not found")
+}
+
+func TestCreateFundOrder_NotFundManager(t *testing.T) {
+	svc := newFundOrderService(
+		&fakeFundRepo{findByIDResult: defaultFund(99)},
+		&fakeAssetOwnershipRepo{},
+	)
+
+	_, err := svc.CreateFundOrder(supervisorAuthCtx(5), dto.CreateFundOrderRequest{
+		FundID:    42,
+		ListingID: 1,
+		OrderType: model.OrderTypeMarket,
+		Direction: model.OrderDirectionBuy,
+		Quantity:  1,
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not the manager")
+}
+
+func TestCreateFundOrder_LimitOrder_MissingLimitValue(t *testing.T) {
+	const managerID uint = 5
+	svc := newFundOrderService(
+		&fakeFundRepo{findByIDResult: defaultFund(managerID)},
+		&fakeAssetOwnershipRepo{},
+	)
+
+	_, err := svc.CreateFundOrder(supervisorAuthCtx(managerID), dto.CreateFundOrderRequest{
+		FundID:    42,
+		ListingID: 1,
+		OrderType: model.OrderTypeLimit,
+		Direction: model.OrderDirectionBuy,
+		Quantity:  1,
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "limitValue is required")
+}
+
+func TestCreateFundOrder_Sell_InsufficientOwnership(t *testing.T) {
+	const managerID uint = 5
+	listing := defaultListing()
+	svc := newFundOrderService(
+		&fakeFundRepo{findByIDResult: defaultFund(managerID)},
+		&fakeAssetOwnershipRepo{
+			ownerships: []model.AssetOwnership{
+				{AssetID: listing.AssetID, UserId: 42, OwnerType: model.OwnerTypeFund, Amount: 2},
+			},
+		},
+	)
+
+	_, err := svc.CreateFundOrder(supervisorAuthCtx(managerID), dto.CreateFundOrderRequest{
+		FundID:    42,
+		ListingID: 1,
+		OrderType: model.OrderTypeMarket,
+		Direction: model.OrderDirectionSell,
+		Quantity:  10,
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "insufficient")
+}
+
+func TestCreateFundOrder_Sell_Success(t *testing.T) {
+	const managerID uint = 5
+	listing := defaultListing()
+	svc := newFundOrderService(
+		&fakeFundRepo{findByIDResult: defaultFund(managerID)},
+		&fakeAssetOwnershipRepo{
+			ownerships: []model.AssetOwnership{
+				{AssetID: listing.AssetID, UserId: 42, OwnerType: model.OwnerTypeFund, Amount: 20},
+			},
+		},
+	)
+
+	order, err := svc.CreateFundOrder(supervisorAuthCtx(managerID), dto.CreateFundOrderRequest{
+		FundID:    42,
+		ListingID: 1,
+		OrderType: model.OrderTypeMarket,
+		Direction: model.OrderDirectionSell,
+		Quantity:  5,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, order)
+	require.Equal(t, model.OrderDirectionSell, order.Direction)
+	require.Equal(t, model.OwnerTypeFund, order.AssetOwnerType)
 }

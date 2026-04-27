@@ -16,6 +16,44 @@ definitions:
       message:
         type: string
     type: object
+  dto.CreateFundOrderRequest:
+    properties:
+      all_or_none:
+        type: boolean
+      direction:
+        allOf:
+        - $ref: '#/definitions/model.OrderDirection'
+        enum:
+        - BUY
+        - SELL
+      fund_id:
+        type: integer
+      limit_value:
+        type: number
+      listing_id:
+        type: integer
+      margin:
+        type: boolean
+      order_type:
+        allOf:
+        - $ref: '#/definitions/model.OrderType'
+        enum:
+        - MARKET
+        - LIMIT
+        - STOP
+        - STOP_LIMIT
+      quantity:
+        minimum: 1
+        type: integer
+      stop_value:
+        type: number
+    required:
+    - direction
+    - fund_id
+    - listing_id
+    - order_type
+    - quantity
+    type: object
   dto.CreateFundRequest:
     properties:
       description:
@@ -699,10 +737,12 @@ definitions:
     enum:
     - CLIENT
     - ACTUARY
+    - FUND
     type: string
     x-enum-varnames:
     - OwnerTypeClient
     - OwnerTypeActuary
+    - OwnerTypeFund
 info:
   contact: {}
   description: API for managing portfolios, executing trades, and handling financial
@@ -1794,6 +1834,47 @@ paths:
           schema:
             $ref: '#/definitions/errors.AppError'
       summary: Decline a pending order
+      tags:
+      - orders
+  /api/orders/invest:
+    post:
+      consumes:
+      - application/json
+      description: Supervisor places a buy or sell order for a listing using a fund's
+        account. The fund becomes the asset owner.
+      parameters:
+      - description: Fund order details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateFundOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.OrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Create an order on behalf of an investment fund
       tags:
       - orders
   /api/otc/public:

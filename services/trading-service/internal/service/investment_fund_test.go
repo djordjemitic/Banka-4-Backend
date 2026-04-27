@@ -17,6 +17,8 @@ import (
 // ── Fake Fund Repo ────────────────────────────────────────────────
 
 type fakeFundRepo struct {
+	findByIDResult   *model.InvestmentFund
+	findByIDErr      error
 	findByNameResult *model.InvestmentFund
 	findByNameErr    error
 	findByIDResult   *model.InvestmentFund

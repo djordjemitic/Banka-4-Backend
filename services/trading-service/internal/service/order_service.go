@@ -48,6 +48,24 @@ type tradeSettlement struct {
 	DestinationCurrency string
 }
 
+type placeOrderParams struct {
+	AccountNumber    string
+	ListingID        uint
+	OrderType        model.OrderType
+	Direction        model.OrderDirection
+	Quantity         uint
+	LimitValue       *float64
+	StopValue        *float64
+	AllOrNone        bool
+	Margin           bool
+	OrderOwnerUserID uint
+	OrderOwnerType   model.OwnerType
+	AssetOwnerUserID uint
+	AssetOwnerType   model.OwnerType
+	CommissionExempt bool
+	account          *pb.GetAccountByNumberResponse
+}
+
 type OrderService struct {
 	orderRepo            repository.OrderRepository
 	orderTransactionRepo repository.OrderTransactionRepository
@@ -56,6 +74,7 @@ type OrderService struct {
 	assetOwnershipRepo   repository.AssetOwnershipRepository
 	futuresRepo          repository.FuturesContractRepository
 	optionRepo           repository.OptionRepository
+	fundRepo             repository.InvestmentFundRepository
 	userClient           client.UserServiceClient
 	bankingClient        client.BankingClient
 	taxService           TaxRecorder
@@ -74,6 +93,7 @@ func NewOrderService(
 	assetOwnershipRepo repository.AssetOwnershipRepository,
 	futuresRepo repository.FuturesContractRepository,
 	optionRepo repository.OptionRepository,
+	fundRepo repository.InvestmentFundRepository,
 	userClient client.UserServiceClient,
 	bankingClient client.BankingClient,
 	taxService TaxRecorder,
@@ -86,6 +106,7 @@ func NewOrderService(
 		assetOwnershipRepo:   assetOwnershipRepo,
 		futuresRepo:          futuresRepo,
 		optionRepo:           optionRepo,
+		fundRepo:             fundRepo,
 		userClient:           userClient,
 		bankingClient:        bankingClient,
 		taxService:           taxService,
@@ -142,7 +163,7 @@ func (s *OrderService) GetOrders(ctx context.Context, query dto.ListOrdersQuery)
 }
 
 func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderRequest) (*model.Order, error) {
-	if err := validateOrderTypeFields(req); err != nil {
+	if err := validateOrderTypeFields(placeOrderParams{OrderType: req.OrderType, LimitValue: req.LimitValue, StopValue: req.StopValue}); err != nil {
 		return nil, err
 	}
 
@@ -156,7 +177,83 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 		return nil, err
 	}
 
-	listing, err := s.listingRepo.FindByID(ctx, req.ListingID, 0)
+	ownerType := model.OwnerTypeClient
+	userID := authCtx.ClientID
+	if authCtx.IdentityType == auth.IdentityEmployee {
+		ownerType = model.OwnerTypeActuary
+		userID = authCtx.EmployeeID
+	}
+
+	return s.placeOrder(ctx, authCtx, placeOrderParams{
+		AccountNumber:    req.AccountNumber,
+		ListingID:        req.ListingID,
+		OrderType:        req.OrderType,
+		Direction:        req.Direction,
+		Quantity:         req.Quantity,
+		LimitValue:       req.LimitValue,
+		StopValue:        req.StopValue,
+		AllOrNone:        req.AllOrNone,
+		Margin:           req.Margin,
+		OrderOwnerUserID: *userID,
+		OrderOwnerType:   ownerType,
+		AssetOwnerUserID: *userID,
+		AssetOwnerType:   ownerType,
+		CommissionExempt: authCtx.IdentityType == auth.IdentityEmployee,
+		account:          account,
+	})
+}
+
+func (s *OrderService) CreateFundOrder(ctx context.Context, req dto.CreateFundOrderRequest) (*model.Order, error) {
+	if err := validateOrderTypeFields(placeOrderParams{OrderType: req.OrderType, LimitValue: req.LimitValue, StopValue: req.StopValue}); err != nil {
+		return nil, err
+	}
+
+	authCtx := auth.GetAuthFromContext(ctx)
+	if authCtx == nil || authCtx.IdentityType != auth.IdentityEmployee || authCtx.EmployeeID == nil {
+		return nil, errors.UnauthorizedErr("only employees can place fund orders")
+	}
+
+	fund, err := s.fundRepo.FindByID(ctx, req.FundID)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if fund == nil {
+		return nil, errors.NotFoundErr("investment fund not found")
+	}
+	if fund.ManagerID != *authCtx.EmployeeID {
+		return nil, errors.ForbiddenErr("you are not the manager of this fund")
+	}
+
+	account, err := s.bankingClient.GetAccountByNumber(ctx, fund.AccountNumber)
+	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
+			return nil, errors.NotFoundErr("account not found")
+		}
+		return nil, errors.ServiceUnavailableErr(err)
+	}
+
+	return s.placeOrder(ctx, authCtx, placeOrderParams{
+		AccountNumber:    fund.AccountNumber,
+		ListingID:        req.ListingID,
+		OrderType:        req.OrderType,
+		Direction:        req.Direction,
+		Quantity:         req.Quantity,
+		LimitValue:       req.LimitValue,
+		StopValue:        req.StopValue,
+		AllOrNone:        req.AllOrNone,
+		Margin:           req.Margin,
+		OrderOwnerUserID: *authCtx.EmployeeID,
+		OrderOwnerType:   model.OwnerTypeActuary,
+		AssetOwnerUserID: req.FundID,
+		AssetOwnerType:   model.OwnerTypeFund,
+		CommissionExempt: true,
+		account:          account,
+	})
+}
+
+func (s *OrderService) placeOrder(ctx context.Context, authCtx *auth.AuthContext, p placeOrderParams) (*model.Order, error) {
+	listing, err := s.listingRepo.FindByID(ctx, p.ListingID, 0)
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -176,44 +273,39 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 		return nil, errors.NotFoundErr("exchange not found")
 	}
 
-	if err := s.validateMarginRequirements(ctx, authCtx, req, listing, exchange, account); err != nil {
+	if err := s.validateMarginRequirements(ctx, authCtx, p.Margin, listing, exchange, p.account); err != nil {
 		return nil, err
 	}
 
-	initialPricePerUnit := calculateInitialPricePerUnit(req, listing)
-	session := s.resolveExchangeSession(exchange)
-	ownerType := model.OwnerTypeClient
-	userID := authCtx.ClientID
-	if authCtx.IdentityType == auth.IdentityEmployee {
-		ownerType = model.OwnerTypeActuary
-		userID = authCtx.EmployeeID
-	}
-
-	if req.Direction == model.OrderDirectionSell && listing.Asset != nil {
-		if err := s.validateSellOwnership(ctx, *userID, ownerType, listing.AssetID, float64(req.Quantity)); err != nil {
+	if p.Direction == model.OrderDirectionSell && listing.Asset != nil {
+		if err := s.validateSellOwnership(ctx, p.AssetOwnerUserID, p.AssetOwnerType, listing.AssetID, float64(p.Quantity)); err != nil {
 			return nil, err
 		}
 	}
 
+	session := s.resolveExchangeSession(exchange)
+
 	order := model.Order{
-		UserID:            *userID,
-		AccountNumber:     req.AccountNumber,
-		ListingID:         req.ListingID,
+		OrderOwnerUserID:  p.OrderOwnerUserID,
+		OrderOwnerType:    p.OrderOwnerType,
+		AssetOwnerUserID:  p.AssetOwnerUserID,
+		AssetOwnerType:    p.AssetOwnerType,
+		AccountNumber:     p.AccountNumber,
+		ListingID:         p.ListingID,
 		Listing:           *listing,
-		OrderType:         req.OrderType,
-		Direction:         req.Direction,
-		Quantity:          req.Quantity,
+		OrderType:         p.OrderType,
+		Direction:         p.Direction,
+		Quantity:          p.Quantity,
 		ContractSize:      s.resolveContractSize(ctx, listing),
-		PricePerUnit:      initialPricePerUnit,
-		LimitValue:        req.LimitValue,
-		StopValue:         req.StopValue,
-		AllOrNone:         req.AllOrNone,
-		Margin:            req.Margin,
+		PricePerUnit:      calculateInitialPricePerUnit(p, listing),
+		LimitValue:        p.LimitValue,
+		StopValue:         p.StopValue,
+		AllOrNone:         p.AllOrNone,
+		Margin:            p.Margin,
 		AfterHours:        session.AfterHours,
-		Triggered:         req.OrderType == model.OrderTypeMarket || req.OrderType == model.OrderTypeLimit,
+		Triggered:         p.OrderType == model.OrderTypeMarket || p.OrderType == model.OrderTypeLimit,
 		CommissionCharged: false,
-		CommissionExempt:  authCtx.IdentityType == auth.IdentityEmployee,
-		OwnerType:         ownerType,
+		CommissionExempt:  p.CommissionExempt,
 		IsDone:            false,
 		CreatedAt:         s.now(),
 		UpdatedAt:         s.now(),
@@ -355,9 +447,9 @@ func (s *OrderService) CancelOrder(ctx context.Context, orderID uint) (*model.Or
 
 	isOwner := false
 	if authCtx.IdentityType == auth.IdentityEmployee {
-		isOwner = order.UserID == *authCtx.EmployeeID
+		isOwner = order.OrderOwnerUserID == *authCtx.EmployeeID
 	} else {
-		isOwner = order.UserID == *authCtx.ClientID
+		isOwner = order.OrderOwnerUserID == *authCtx.ClientID
 	}
 
 	isSupervisor, err := s.checkSupervisor(ctx)
@@ -526,6 +618,13 @@ func (s *OrderService) processOrder(ctx context.Context, order *model.Order) err
 	return nil
 }
 
+func assetOwner(order *model.Order) (uint, model.OwnerType) {
+	if order.AssetOwnerUserID != 0 {
+		return order.AssetOwnerUserID, order.AssetOwnerType
+	}
+	return order.OrderOwnerUserID, order.OrderOwnerType
+}
+
 func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Order, fillQty uint, pricePerUnit float64, currency string) error {
 	if order.Listing.Asset == nil {
 		return fmt.Errorf("listing %d has no asset", order.ListingID)
@@ -533,8 +632,9 @@ func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Or
 
 	fillAmount := float64(fillQty) * order.ContractSize
 	assetID := order.Listing.AssetID
+	ownerID, ownerType := assetOwner(order)
 
-	existing, err := s.assetOwnershipRepo.FindByUserId(ctx, order.UserID, order.OwnerType)
+	existing, err := s.assetOwnershipRepo.FindByUserId(ctx, ownerID, ownerType)
 	if err != nil {
 		return err
 	}
@@ -549,8 +649,8 @@ func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Or
 
 	if ownership == nil {
 		ownership = &model.AssetOwnership{
-			UserId:    order.UserID,
-			OwnerType: order.OwnerType,
+			UserId:    ownerID,
+			OwnerType: ownerType,
 			AssetID:   assetID,
 		}
 	}
@@ -582,6 +682,11 @@ func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Or
 
 func (s *OrderService) resolveOrderStatus(ctx context.Context, authCtx *auth.AuthContext, order *model.Order) model.OrderStatus {
 	if authCtx.IdentityType == auth.IdentityClient {
+		return model.OrderStatusApproved
+	}
+
+	isSupervisor, err := s.checkSupervisor(ctx)
+	if isSupervisor && err == nil {
 		return model.OrderStatusApproved
 	}
 
@@ -664,12 +769,12 @@ func (s *OrderService) validateAccount(ctx context.Context, accountNumber string
 func (s *OrderService) validateMarginRequirements(
 	ctx context.Context,
 	authCtx *auth.AuthContext,
-	req dto.CreateOrderRequest,
+	margin bool,
 	listing *model.Listing,
 	exchange *model.Exchange,
 	account *pb.GetAccountByNumberResponse,
 ) error {
-	if !req.Margin {
+	if !margin {
 		return nil
 	}
 
@@ -905,36 +1010,36 @@ func (s *OrderService) failOrder(ctx context.Context, order *model.Order, status
 	return s.orderRepo.Save(ctx, order)
 }
 
-func validateOrderTypeFields(req dto.CreateOrderRequest) error {
-	switch req.OrderType {
+func validateOrderTypeFields(p placeOrderParams) error {
+	switch p.OrderType {
 	case model.OrderTypeLimit:
-		if req.LimitValue == nil {
+		if p.LimitValue == nil {
 			return errors.BadRequestErr("limitValue is required for LIMIT orders")
 		}
 	case model.OrderTypeStop:
-		if req.StopValue == nil {
+		if p.StopValue == nil {
 			return errors.BadRequestErr("stopValue is required for STOP orders")
 		}
 	case model.OrderTypeStopLimit:
-		if req.LimitValue == nil {
+		if p.LimitValue == nil {
 			return errors.BadRequestErr("limitValue is required for STOP_LIMIT orders")
 		}
-		if req.StopValue == nil {
+		if p.StopValue == nil {
 			return errors.BadRequestErr("stopValue is required for STOP_LIMIT orders")
 		}
 	}
 	return nil
 }
 
-func calculateInitialPricePerUnit(req dto.CreateOrderRequest, listing *model.Listing) *float64 {
-	switch req.OrderType {
+func calculateInitialPricePerUnit(p placeOrderParams, listing *model.Listing) *float64 {
+	switch p.OrderType {
 	case model.OrderTypeLimit, model.OrderTypeStopLimit:
-		return req.LimitValue
+		return p.LimitValue
 	case model.OrderTypeStop:
-		return req.StopValue
+		return p.StopValue
 	case model.OrderTypeMarket:
 		var price float64
-		if req.Direction == model.OrderDirectionBuy {
+		if p.Direction == model.OrderDirectionBuy {
 			price = listing.Ask
 		} else {
 			price = listing.Price
@@ -1068,8 +1173,8 @@ func (s *OrderService) recordProfitTax(ctx context.Context, order *model.Order, 
 	}
 
 	var employeeID *uint
-	if order.OwnerType == model.OwnerTypeActuary {
-		employeeID = &order.UserID
+	if order.OrderOwnerType == model.OwnerTypeActuary {
+		employeeID = &order.OrderOwnerUserID
 	}
 	return s.taxService.RecordTax(ctx, order.AccountNumber, employeeID, profitInAccountCurrency, accountCurrency)
 }
@@ -1079,7 +1184,8 @@ func (s *OrderService) getOwnershipForOrder(ctx context.Context, order *model.Or
 		return nil, nil
 	}
 
-	existing, err := s.assetOwnershipRepo.FindByUserId(ctx, order.UserID, order.OwnerType)
+	ownerID, ownerType := assetOwner(order)
+	existing, err := s.assetOwnershipRepo.FindByUserId(ctx, ownerID, ownerType)
 	if err != nil {
 		return nil, err
 	}

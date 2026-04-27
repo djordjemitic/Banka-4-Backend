@@ -1539,6 +1539,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/orders/invest": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Supervisor places a buy or sell order for a listing using a fund's account. The fund becomes the asset owner.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Create an order on behalf of an investment fund",
+                "parameters": [
+                    {
+                        "description": "Fund order details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateFundOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/orders/{id}/approve": {
             "patch": {
                 "description": "Supervisor approves a pending order",
@@ -1851,6 +1914,64 @@ const docTemplate = `{
             "properties": {
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "dto.CreateFundOrderRequest": {
+            "type": "object",
+            "required": [
+                "direction",
+                "fund_id",
+                "listing_id",
+                "order_type",
+                "quantity"
+            ],
+            "properties": {
+                "all_or_none": {
+                    "type": "boolean"
+                },
+                "direction": {
+                    "enum": [
+                        "BUY",
+                        "SELL"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.OrderDirection"
+                        }
+                    ]
+                },
+                "fund_id": {
+                    "type": "integer"
+                },
+                "limit_value": {
+                    "type": "number"
+                },
+                "listing_id": {
+                    "type": "integer"
+                },
+                "margin": {
+                    "type": "boolean"
+                },
+                "order_type": {
+                    "enum": [
+                        "MARKET",
+                        "LIMIT",
+                        "STOP",
+                        "STOP_LIMIT"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.OrderType"
+                        }
+                    ]
+                },
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "stop_value": {
+                    "type": "number"
                 }
             }
         },
@@ -2882,11 +3003,13 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "CLIENT",
-                "ACTUARY"
+                "ACTUARY",
+                "FUND"
             ],
             "x-enum-varnames": [
                 "OwnerTypeClient",
-                "OwnerTypeActuary"
+                "OwnerTypeActuary",
+                "OwnerTypeFund"
             ]
         }
     },

@@ -285,7 +285,7 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	fundHandler := handler.NewInvestmentFundHandler(fundSvc)
 
 	var taxRecorder service.TaxRecorder = &fakeTaxRecorder{}
-	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, futuresRepo, optionRepo, userClient, bankingClient, taxRecorder)
+	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, futuresRepo, optionRepo, fundRepo, userClient, bankingClient, taxRecorder)
 	portfolioSvc := service.NewPortfolioService(assetOwnershipRepo, stockRepo, optionRepo, futuresRepo, forexRepo, bankingClient, userClient)
 
 	taxSvc := service.NewTaxService(taxRepo, bankingClient, cfg)
@@ -452,16 +452,16 @@ func seedOrder(t *testing.T, db *gorm.DB, userID, listingID uint, direction mode
 	t.Helper()
 
 	order := &model.Order{
-		UserID:        userID,
-		AccountNumber: "444000100000000001",
-		ListingID:     listingID,
-		OrderType:     model.OrderTypeMarket,
-		Direction:     direction,
-		Quantity:      10,
-		ContractSize:  1,
-		Status:        status,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		OrderOwnerUserID: userID,
+		AccountNumber:    "444000100000000001",
+		ListingID:        listingID,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        direction,
+		Quantity:         10,
+		ContractSize:     1,
+		Status:           status,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
 	}
 
 	if err := db.Create(order).Error; err != nil {
