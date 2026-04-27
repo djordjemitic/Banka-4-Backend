@@ -30,7 +30,7 @@ func TestInvestInFund_ClientSuccess(t *testing.T) {
 	resp := decodeResponse[map[string]any](t, rec)
 	require.Equal(t, float64(fund.FundID), resp["fund_id"])
 	require.Equal(t, 1000.0, resp["invested_now"])
-	require.Equal(t, 1000.0, resp["total_invested"])
+	require.Equal(t, 1000.0, resp["total_invested_rsd"])
 }
 
 func TestInvestInFund_SupervisorSuccess(t *testing.T) {
@@ -52,7 +52,7 @@ func TestInvestInFund_SupervisorSuccess(t *testing.T) {
 
 	resp := decodeResponse[map[string]any](t, rec)
 	require.Equal(t, 5000.0, resp["invested_now"])
-	require.Equal(t, 5000.0, resp["total_invested"])
+	require.Equal(t, 5000.0, resp["total_invested_rsd"])
 }
 
 func TestInvestInFund_AccumulatesPosition(t *testing.T) {
@@ -76,7 +76,7 @@ func TestInvestInFund_AccumulatesPosition(t *testing.T) {
 
 	resp := decodeResponse[map[string]any](t, rec2)
 	require.Equal(t, 1000.0, resp["invested_now"])
-	require.Equal(t, 2000.0, resp["total_invested"])
+	require.Equal(t, 2000.0, resp["total_invested_rsd"])
 }
 
 func TestInvestInFund_BelowMinimum(t *testing.T) {
