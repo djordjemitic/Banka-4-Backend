@@ -2774,6 +2774,9 @@ const docTemplate = `{
                 "amount": {
                     "type": "number"
                 },
+                "commission_exempt": {
+                    "type": "boolean"
+                },
                 "payer_account_number": {
                     "type": "string"
                 },
